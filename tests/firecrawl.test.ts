@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { storefrontSnapshot } from '../lib/firecrawl.ts';
+import {
+  discoverExplicitIntent,
+  storefrontSnapshot,
+} from '../lib/firecrawl.ts';
 
 void test('storefront fingerprints ignore superficial ordering and detect status changes', async () => {
   const first = await storefrontSnapshot({
@@ -22,4 +25,79 @@ void test('storefront fingerprints ignore superficial ordering and detect status
 
   assert.equal(first.contentHash, equivalent.contentHash);
   assert.notEqual(first.contentHash, broken.contentHash);
+});
+
+void test('discovery filters noisy pages and ranks recent replyable requests first', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalApiKey = process.env.FIRECRAWL_API_KEY;
+  let requestBody: Record<string, unknown> | undefined;
+  process.env.FIRECRAWL_API_KEY = 'test-key';
+  globalThis.fetch = async (_input, init) => {
+    if (typeof init?.body !== 'string') throw new Error('Expected JSON body');
+    requestBody = JSON.parse(init.body) as Record<string, unknown>;
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          web: [
+            {
+              title: 'Shopify QA help needed this week',
+              description:
+                'We need someone to test our ecommerce storefront on mobile and check broken links.',
+              url: 'https://www.reddit.com/r/shopify/comments/fresh123/qa_help/',
+              date: '1 hour ago',
+            },
+            {
+              title: 'Shopify storefront audit consultant wanted',
+              description:
+                'We need our ecommerce checkout tested. Email proposals to owner@merchant.example.',
+              url: 'https://merchant.example/rfp/storefront-audit',
+              date: '6 days ago',
+            },
+            {
+              title: 'Looking for Shopify QA? Hire our team',
+              description:
+                'Our services cover ecommerce QA. We offer audits and mobile testing.',
+              url: 'https://agency.example/services/shopify-qa',
+              date: '1 day ago',
+            },
+            {
+              title: 'How to test a Shopify storefront',
+              description: 'A complete ecommerce QA audit guide.',
+              url: 'https://publisher.example/blog/shopify-testing',
+              date: '1 day ago',
+            },
+            {
+              title: 'Shopify QA tester needed',
+              description:
+                'Full-time role with a job description, responsibilities and benefits. Apply now.',
+              url: 'https://merchant.example/careers/qa-tester',
+              date: '1 day ago',
+            },
+          ],
+        },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+
+  try {
+    const results = await discoverExplicitIntent();
+    assert.deepEqual(
+      results.map((result) => result.url),
+      [
+        'https://www.reddit.com/r/shopify/comments/fresh123/qa_help/',
+        'https://merchant.example/rfp/storefront-audit',
+      ],
+    );
+    assert.equal(results[0].contactChannel, 'source-platform');
+    assert.equal(results[1].contactChannel, 'direct-email');
+    assert.equal(results[1].contactEmail, 'owner@merchant.example');
+    assert.equal(requestBody?.tbs, 'qdr:w,sbd:1');
+    assert.match(String(requestBody?.query), /-career/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalApiKey === undefined) delete process.env.FIRECRAWL_API_KEY;
+    else process.env.FIRECRAWL_API_KEY = originalApiKey;
+  }
 });

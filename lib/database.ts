@@ -213,6 +213,9 @@ export async function insertDiscoveredOpportunities(
     description: string;
     score: number;
     reasons: string[];
+    contactChannel?: 'source-platform' | 'direct-email';
+    contactEmail?: string;
+    publishedAt?: string;
   }>,
 ) {
   await ensureSchema();
@@ -222,24 +225,34 @@ export async function insertDiscoveredOpportunities(
     database
       .prepare(
         `INSERT INTO leads (
-          id, company_name, contact_channel, source_url, source_title, source_excerpt,
+          id, company_name, contact_email, contact_channel, source_url, source_title, source_excerpt,
           explicit_intent, fit_score, fit_reason, status, next_action
-        ) VALUES (?, ?, 'source-platform', ?, ?, ?, 0, ?, ?, 'discovered', 'Verify explicit intent and channel rules')
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 'discovered', ?)
         ON CONFLICT(source_url) DO UPDATE SET
           source_title = excluded.source_title,
           source_excerpt = excluded.source_excerpt,
           fit_score = MAX(leads.fit_score, excluded.fit_score),
           fit_reason = excluded.fit_reason,
+          contact_email = CASE WHEN leads.status = 'discovered' THEN excluded.contact_email ELSE leads.contact_email END,
+          contact_channel = CASE WHEN leads.status = 'discovered' THEN excluded.contact_channel ELSE leads.contact_channel END,
           updated_at = datetime('now')`,
       )
       .bind(
         crypto.randomUUID(),
         new URL(item.url).hostname.replace(/^www\./, ''),
+        item.contactEmail?.toLowerCase() ?? null,
+        item.contactChannel ?? 'source-platform',
         item.url,
         item.title.slice(0, 300),
         item.description.slice(0, 1800),
         item.score,
-        item.reasons.join(', '),
+        [
+          ...item.reasons,
+          ...(item.publishedAt ? [`published ${item.publishedAt}`] : []),
+        ].join(', '),
+        item.contactChannel === 'direct-email'
+          ? 'Verify the public request and published reply email'
+          : 'Verify the public request and source-platform reply rules',
       ),
   );
   await database.batch(statements);

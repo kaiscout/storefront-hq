@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { publicConfig } from '../lib/config.ts';
+import { integrationState, publicConfig } from '../lib/config.ts';
 
 void test('public intake requires identity, private access, and every integration', () => {
   const values: Record<string, string> = {
@@ -42,6 +42,8 @@ void test('public intake requires identity, private access, and every integratio
         false,
         `${checkoutUrl} must not open public intake`,
       );
+      assert.equal(publicConfig().checkoutUrl, '');
+      assert.equal(integrationState().payments, false);
     }
 
     for (const checkoutUrl of [
@@ -54,6 +56,8 @@ void test('public intake requires identity, private access, and every integratio
         true,
         `${checkoutUrl} should remain launch-ready`,
       );
+      assert.equal(publicConfig().checkoutUrl, checkoutUrl);
+      assert.equal(integrationState().payments, true);
     }
     process.env.CHECKOUT_URL = values.CHECKOUT_URL;
 

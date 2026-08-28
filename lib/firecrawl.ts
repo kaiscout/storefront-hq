@@ -1,4 +1,4 @@
-import { scoreOpportunity } from './pipeline.ts';
+import { assessBuyerIntent } from './pipeline.ts';
 import { sha256Hex } from './security.ts';
 
 const API_BASE = 'https://api.firecrawl.dev/v2';
@@ -8,11 +8,14 @@ type SearchResult = {
   description?: string;
   url?: string;
   markdown?: string;
+  date?: string;
   metadata?: {
     sourceURL?: string;
     url?: string;
     title?: string;
     description?: string;
+    date?: string;
+    publishedDate?: string;
     statusCode?: number;
   };
 };
@@ -50,7 +53,7 @@ async function firecrawlFetch<T>(path: string, body: unknown): Promise<T> {
 
 export async function discoverExplicitIntent() {
   const query =
-    '(Shopify OR ecommerce) ("looking for" OR "seeking" OR "need help") (QA OR "broken links" OR CRO OR BFCM OR "Black Friday" OR "store speed") -jobs -career';
+    '(Shopify OR ecommerce OR storefront) ("looking for" OR "seeking" OR "need help" OR "can anyone help" OR "proposals") (QA OR testing OR audit OR "broken links" OR CRO OR BFCM OR "Black Friday" OR "store speed") -career -careers -salary -"job description" -"how to"';
   const response = await firecrawlFetch<{
     success: boolean;
     data?: { web?: SearchResult[] };
@@ -75,14 +78,37 @@ export async function discoverExplicitIntent() {
         result.metadata?.description ??
         result.markdown?.slice(0, 800) ??
         '';
+      const assessment = assessBuyerIntent({
+        url,
+        title,
+        description,
+        markdown: result.markdown,
+        publishedDate:
+          result.date ??
+          result.metadata?.date ??
+          result.metadata?.publishedDate,
+      });
+      if (!assessment.accepted) return null;
       return {
         url,
         title,
         description,
-        ...scoreOpportunity({ title, description, url }),
+        score: assessment.score,
+        reasons: assessment.reasons,
+        contactChannel: assessment.contactChannel,
+        contactEmail: assessment.contactEmail,
+        publishedAt: assessment.publishedAt,
+        recencyRank: assessment.recencyRank,
       };
     })
-    .filter((result) => result.url && result.score >= 28);
+    .filter((result): result is NonNullable<typeof result> => result !== null)
+    .sort(
+      (left, right) =>
+        right.recencyRank - left.recencyRank ||
+        right.score - left.score ||
+        left.url.localeCompare(right.url),
+    )
+    .map(({ recencyRank: _recencyRank, ...result }) => result);
 }
 
 export async function scrapeStorefrontPreview(url: string) {

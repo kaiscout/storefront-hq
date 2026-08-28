@@ -12,7 +12,7 @@ import {
 import { LeadActions } from '@/components/ops/lead-actions';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { integrationState } from '@/lib/config';
+import { integrationState, publicConfig } from '@/lib/config';
 import { listLeads, listWatchRoutes, pipelineCounts } from '@/lib/database';
 import { currentOperator } from '@/lib/operator-auth';
 import { buildProposal, type PipelineStatus } from '@/lib/pipeline';
@@ -83,6 +83,7 @@ export default async function OpsPage() {
       ...(watchRoutesByLead.get(row.lead_id) ?? []),
       row.url,
     ]);
+  const config = publicConfig();
   const integrations = integrationState();
   const paid =
     Number(counts.paid ?? 0) +
@@ -291,7 +292,7 @@ export default async function OpsPage() {
                               contactChannel: lead.contact_channel,
                             }}
                             proposal={`${proposal.subject}\n\n${proposal.body}`}
-                            checkoutUrl={process.env.CHECKOUT_URL ?? ''}
+                            checkoutUrl={config.checkoutUrl}
                             watchRoutes={watchRoutesByLead.get(lead.id) ?? []}
                           />
                         </td>

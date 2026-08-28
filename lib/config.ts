@@ -38,7 +38,10 @@ export function publicConfig() {
   const operatorName = process.env.PUBLIC_OPERATOR_NAME?.trim() ?? '';
   const contactEmail = process.env.PUBLIC_CONTACT_EMAIL?.trim() ?? '';
   const calUrl = process.env.CAL_BOOKING_URL?.trim() ?? '';
-  const checkoutUrl = process.env.CHECKOUT_URL?.trim() ?? '';
+  const configuredCheckoutUrl = process.env.CHECKOUT_URL?.trim() ?? '';
+  const checkoutUrl = isLiveStripeCheckoutUrl(configuredCheckoutUrl)
+    ? configuredCheckoutUrl
+    : '';
   const siteUrl = process.env.PUBLIC_SITE_URL?.replace(/\/$/, '') ?? '';
   const operatorOwners = operatorOwnerEmails();
   const launchReady = Boolean(
@@ -50,7 +53,7 @@ export function publicConfig() {
     process.env.AUTOMATION_SECRET?.trim() &&
     calUrl.startsWith('https://') &&
     process.env.CAL_WEBHOOK_SECRET?.trim() &&
-    isLiveStripeCheckoutUrl(checkoutUrl) &&
+    checkoutUrl &&
     process.env.STRIPE_WEBHOOK_SECRET?.trim() &&
     siteUrl.startsWith('https://'),
   );
@@ -73,7 +76,7 @@ export function integrationState() {
     gmail: Boolean(process.env.AUTOMATION_SECRET),
     cal: Boolean(process.env.CAL_BOOKING_URL && process.env.CAL_WEBHOOK_SECRET),
     payments: Boolean(
-      process.env.CHECKOUT_URL && process.env.STRIPE_WEBHOOK_SECRET,
+      config.checkoutUrl && process.env.STRIPE_WEBHOOK_SECRET?.trim(),
     ),
     identity: Boolean(config.operatorName && config.contactEmail),
     operatorAccess: operatorOwnerEmails().length > 0,

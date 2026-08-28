@@ -13,7 +13,7 @@ import { LeadActions } from '@/components/ops/lead-actions';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { integrationState } from '@/lib/config';
-import { listLeads, pipelineCounts } from '@/lib/database';
+import { listLeads, listWatchRoutes, pipelineCounts } from '@/lib/database';
 import { currentOperator } from '@/lib/operator-auth';
 import { buildProposal, type PipelineStatus } from '@/lib/pipeline';
 
@@ -72,7 +72,17 @@ export default async function OpsPage() {
     );
   }
 
-  const [leads, counts] = await Promise.all([listLeads(), pipelineCounts()]);
+  const [leads, counts, watchRouteRows] = await Promise.all([
+    listLeads(),
+    pipelineCounts(),
+    listWatchRoutes(),
+  ]);
+  const watchRoutesByLead = new Map<string, string[]>();
+  for (const row of watchRouteRows)
+    watchRoutesByLead.set(row.lead_id, [
+      ...(watchRoutesByLead.get(row.lead_id) ?? []),
+      row.url,
+    ]);
   const integrations = integrationState();
   const paid =
     Number(counts.paid ?? 0) +
@@ -202,7 +212,10 @@ export default async function OpsPage() {
                       sourceTitle: lead.source_title,
                       proofSummary: lead.proof_summary,
                       storeUrl: lead.store_url,
-                      calUrl: process.env.CAL_BOOKING_URL,
+                      calUrl:
+                        lead.contact_channel === 'source-platform'
+                          ? undefined
+                          : process.env.CAL_BOOKING_URL,
                       operatorName: process.env.PUBLIC_OPERATOR_NAME,
                     });
                     return (
@@ -279,6 +292,7 @@ export default async function OpsPage() {
                             }}
                             proposal={`${proposal.subject}\n\n${proposal.body}`}
                             checkoutUrl={process.env.CHECKOUT_URL ?? ''}
+                            watchRoutes={watchRoutesByLead.get(lead.id) ?? []}
                           />
                         </td>
                       </tr>

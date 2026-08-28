@@ -25,7 +25,8 @@ export default function PrivacyPage() {
         {!config.launchReady ? (
           <div className="mt-6 rounded-xl border border-[#ff6b35]/40 bg-[#ff6b35]/10 p-4 text-sm">
             <strong>Launch gate:</strong> this service is not accepting data
-            until the operator name and contact address are configured.
+            until the operator identity, private access, and required service
+            integrations are configured.
           </div>
         ) : null}
         <div className="prose-qa mt-10 space-y-8 leading-7 text-muted-foreground">

@@ -11,7 +11,7 @@ The target is one **£895** sale. That clears US$1,000 at ordinary recent exchan
 - Exact route, mobile screenshot, timestamp, reproduction steps and severity
 - Redirect CSV and copy-ready fixes for the priority issues
 - 20-minute handoff through Cal where channel rules permit
-- Daily observation of 10 agreed public routes for 30 days
+- Daily observation of up to 10 agreed public routes for 30 days; enter the agreed URLs in the control room after the handoff
 - Fewer than eight actionable findings: full refund
 - No backend access, retainer or implementation upsell
 

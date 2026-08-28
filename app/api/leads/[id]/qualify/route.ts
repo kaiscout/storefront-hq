@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-import { addFinding, markQualified } from '@/lib/database';
+import {
+  addFinding,
+  getLead,
+  isSuppressed,
+  markQualified,
+} from '@/lib/database';
 import {
   deriveDeterministicFindings,
   scrapeStorefrontPreview,
@@ -39,6 +44,20 @@ export async function POST(
       { status: 400 },
     );
   const { id } = await context.params;
+  const lead = await getLead(id);
+  if (!lead || lead.status !== 'discovered')
+    return Response.json(
+      { error: 'Only a newly discovered lead can be qualified' },
+      { status: 409 },
+    );
+  if (
+    parsed.data.contactEmail &&
+    (await isSuppressed(parsed.data.contactEmail))
+  )
+    return Response.json(
+      { error: 'This address is suppressed and cannot be drafted' },
+      { status: 409 },
+    );
   try {
     const document = await scrapeStorefrontPreview(parsed.data.storeUrl);
     const findings = deriveDeterministicFindings(document);

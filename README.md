@@ -14,6 +14,7 @@ The acquisition model is intent-only. Firecrawl locates recent public requests f
 - Immediate opt-out suppression and deterministic reply classification
 - Signed Cal, Stripe and Firecrawl webhook handling
 - Payment-to-audit handoff and evidence-led fulfilment state
+- Daily comparison of up to 10 operator-entered, client-approved storefront routes for 30 days after payment
 
 ## What is deliberately not automated
 
@@ -23,7 +24,7 @@ The acquisition model is intent-only. Firecrawl locates recent public requests f
 - Claims of conversion or revenue uplift
 - Final evidence validation, refunds or ambiguous reply decisions
 
-See [RUNBOOK.md](./RUNBOOK.md) for the seven-day operating plan and [automations/google-apps-script/SETUP.md](./automations/google-apps-script/SETUP.md) for the dedicated Gmail bridge.
+See [RUNBOOK.md](./RUNBOOK.md) for the seven-day operating plan, [LIVE_OPPORTUNITIES_2026-08-28.md](./LIVE_OPPORTUNITIES_2026-08-28.md) for the time-stamped starting pipeline, and [automations/google-apps-script/SETUP.md](./automations/google-apps-script/SETUP.md) for the dedicated Gmail bridge.
 
 ## Local checks
 

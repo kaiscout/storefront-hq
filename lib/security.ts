@@ -6,6 +6,10 @@ function toHex(bytes: ArrayBuffer) {
   ).join('');
 }
 
+export async function sha256Hex(payload: string) {
+  return toHex(await crypto.subtle.digest('SHA-256', encoder.encode(payload)));
+}
+
 export async function hmacSha256(secret: string, payload: string) {
   const key = await crypto.subtle.importKey(
     'raw',

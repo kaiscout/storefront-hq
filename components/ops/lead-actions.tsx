@@ -7,12 +7,14 @@ import { Check, Copy, Loader2, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import type { PipelineStatus } from '@/lib/pipeline';
 
 export function LeadActions({
   lead,
   proposal,
   checkoutUrl,
+  watchRoutes,
 }: {
   lead: {
     id: string;
@@ -24,11 +26,13 @@ export function LeadActions({
   };
   proposal: string;
   checkoutUrl: string;
+  watchRoutes: string[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+  const [routesText, setRoutesText] = useState(watchRoutes.join('\n'));
 
   async function call(path: string, body?: unknown) {
     setBusy(true);
@@ -75,6 +79,14 @@ export function LeadActions({
     );
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
+  }
+
+  async function saveWatchRoutes() {
+    const routes = routesText
+      .split(/[\r\n,]+/)
+      .map((route) => route.trim())
+      .filter(Boolean);
+    await call(`/api/leads/${lead.id}/watch-routes`, { routes });
   }
 
   if (lead.status === 'discovered') {
@@ -192,15 +204,46 @@ export function LeadActions({
     );
   }
 
-  if (lead.status === 'paid') {
+  if (['paid', 'fulfilling', 'delivered'].includes(lead.status)) {
     return (
-      <Button
-        size="sm"
-        disabled={busy}
-        onClick={() => call(`/api/leads/${lead.id}/audit`)}
-      >
-        {busy ? <Loader2 className="animate-spin" /> : <Play />} Start audit
-      </Button>
+      <div className="flex min-w-[260px] flex-col items-end gap-2">
+        {lead.status === 'paid' ? (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => call(`/api/leads/${lead.id}/audit`)}
+          >
+            {busy ? <Loader2 className="animate-spin" /> : <Play />} Start audit
+          </Button>
+        ) : null}
+        <details className="w-full text-left">
+          <summary className="cursor-pointer text-right text-xs font-bold text-[#477a5b]">
+            Watch routes · {watchRoutes.length}/10
+          </summary>
+          <div className="mt-2 space-y-2 rounded-xl border bg-background p-3 shadow-lg">
+            <Label className="text-xs">
+              Client-approved HTTPS routes, one per line
+            </Label>
+            <Textarea
+              value={routesText}
+              onChange={(event) => setRoutesText(event.target.value)}
+              rows={6}
+              placeholder={lead.storeUrl}
+            />
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              disabled={busy}
+              onClick={saveWatchRoutes}
+            >
+              {busy ? <Loader2 className="animate-spin" /> : <Check />} Save
+              watch routes
+            </Button>
+            {error ? <p className="text-xs text-destructive">{error}</p> : null}
+          </div>
+        </details>
+      </div>
     );
   }
 
@@ -213,6 +256,25 @@ export function LeadActions({
       <Button variant="outline" size="sm" onClick={copyPaymentLink}>
         {copied ? <Check /> : <Copy />}{' '}
         {copied ? 'Copied' : 'Copy payment link'}
+      </Button>
+    );
+  }
+
+  if (lead.status === 'booked' && lead.contactChannel === 'source-platform') {
+    return (
+      <Button
+        size="sm"
+        disabled={busy}
+        onClick={() =>
+          call(`/api/leads/${lead.id}/transition`, {
+            status: 'paid',
+            nextAction:
+              'Marketplace escrow confirmed; start the Firecrawl audit',
+          })
+        }
+      >
+        {busy ? <Loader2 className="animate-spin" /> : <Check />} Mark escrow
+        funded
       </Button>
     );
   }

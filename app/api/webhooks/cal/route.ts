@@ -1,7 +1,10 @@
 import {
+  advanceLead,
+  claimWebhookEvent,
+  completeWebhookEvent,
+  failWebhookEvent,
   getLeadByEmail,
-  recordWebhookOnce,
-  transitionLead,
+  setLeadNextAction,
 } from '@/lib/database';
 import { verifyHexHmac } from '@/lib/security';
 
@@ -24,30 +27,37 @@ export async function POST(request: Request) {
   }
   const event = JSON.parse(raw) as CalPayload;
   const eventType = event.triggerEvent ?? 'UNKNOWN';
-  const eventId =
-    event.payload?.uid ??
-    event.payload?.bookingUid ??
-    `${eventType}:${event.createdAt ?? ''}`;
-  if (!(await recordWebhookOnce('cal', eventId, eventType)))
+  const bookingId = event.payload?.uid ?? event.payload?.bookingUid ?? 'none';
+  const eventId = `${bookingId}:${eventType}:${event.createdAt ?? ''}`;
+  if (!(await claimWebhookEvent('cal', eventId, eventType)))
     return Response.json({ ok: true, duplicate: true });
-
-  const email = event.payload?.attendees?.[0]?.email;
-  const lead = email ? await getLeadByEmail(email) : null;
-  if (lead) {
-    if (
-      eventType === 'BOOKING_CREATED' ||
-      eventType === 'BOOKING_RESCHEDULED'
-    ) {
-      await transitionLead(lead.id, 'booked', {
-        force: true,
-        nextAction: 'Run the fit call and send the payment link',
-      });
-    } else if (eventType === 'BOOKING_CANCELLED') {
-      await transitionLead(lead.id, 'replied', {
-        force: true,
-        nextAction: 'Booking cancelled; decide whether to follow up',
-      });
+  try {
+    const email = event.payload?.attendees?.[0]?.email;
+    const lead = email ? await getLeadByEmail(email) : null;
+    if (lead) {
+      if (
+        eventType === 'BOOKING_CREATED' ||
+        eventType === 'BOOKING_RESCHEDULED'
+      ) {
+        await advanceLead(
+          lead.id,
+          'booked',
+          'Run the fit call and send the payment link',
+        );
+      } else if (eventType === 'BOOKING_CANCELLED') {
+        await setLeadNextAction(
+          lead.id,
+          'Booking cancelled; decide whether to follow up',
+          ['replied', 'booked'],
+        );
+      }
     }
+    await completeWebhookEvent('cal', eventId);
+    return Response.json({ ok: true, matched: Boolean(lead) });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Webhook processing failed';
+    await failWebhookEvent('cal', eventId, message);
+    return Response.json({ error: message }, { status: 500 });
   }
-  return Response.json({ ok: true, matched: Boolean(lead) });
 }

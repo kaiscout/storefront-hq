@@ -1,14 +1,21 @@
-import { addFinding, recordWebhookOnce, transitionLead } from '@/lib/database';
+import {
+  addFinding,
+  advanceLead,
+  claimWebhookEvent,
+  completeWebhookEvent,
+  failWebhookEvent,
+  retryFailedAudit,
+  setLeadNextAction,
+} from '@/lib/database';
 import {
   deriveDeterministicFindings,
   type ScrapeDocument,
 } from '@/lib/firecrawl';
-import { verifyHexHmac } from '@/lib/security';
+import { sha256Hex, verifyHexHmac } from '@/lib/security';
 
 type FirecrawlEvent = {
   type: string;
   id: string;
-  webhookId: string;
   success: boolean;
   error?: string;
   data?: ScrapeDocument[];
@@ -28,41 +35,50 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid signature' }, { status: 401 });
   }
   const event = JSON.parse(raw) as FirecrawlEvent;
-  if (!(await recordWebhookOnce('firecrawl', event.webhookId, event.type))) {
+  const externalId = await sha256Hex(raw);
+  if (!(await claimWebhookEvent('firecrawl', externalId, event.type))) {
     return Response.json({ ok: true, duplicate: true });
   }
-  const leadId = event.metadata?.leadId;
-  if (!leadId) return Response.json({ ok: true, matched: false });
-
-  if (event.type === 'crawl.started') {
-    await transitionLead(leadId, 'fulfilling', {
-      force: true,
-      nextAction: 'Audit crawl in progress',
-    });
-  } else if (event.type === 'crawl.page') {
-    for (const document of event.data ?? []) {
-      const url = document.metadata?.sourceURL ?? document.metadata?.url ?? '';
-      for (const finding of deriveDeterministicFindings(document)) {
-        await addFinding({
-          leadId,
-          url,
-          ...finding,
-          screenshotUrl: document.screenshot,
-          statusCode: document.metadata?.statusCode,
-        });
+  try {
+    const leadId = event.metadata?.leadId;
+    if (!leadId) {
+      await completeWebhookEvent('firecrawl', externalId);
+      return Response.json({ ok: true, matched: false });
+    } else if (event.type === 'crawl.started') {
+      await advanceLead(leadId, 'fulfilling', 'Audit crawl in progress');
+    } else if (event.type === 'crawl.page') {
+      for (const document of event.data ?? []) {
+        const url =
+          document.metadata?.sourceURL ?? document.metadata?.url ?? '';
+        if (!url) continue;
+        for (const finding of deriveDeterministicFindings(document)) {
+          await addFinding({
+            leadId,
+            url,
+            ...finding,
+            screenshotUrl: document.screenshot,
+            statusCode: document.metadata?.statusCode,
+          });
+        }
       }
-    }
-  } else if (event.type === 'crawl.completed') {
-    await transitionLead(leadId, 'fulfilling', {
-      force: true,
-      nextAction:
+    } else if (event.type === 'crawl.completed') {
+      await setLeadNextAction(
+        leadId,
         'Validate findings, select the top 12, and deliver the evidence pack',
-    });
-  } else if (event.type === 'crawl.failed') {
-    await transitionLead(leadId, 'paid', {
-      force: true,
-      nextAction: `Audit crawl failed: ${event.error ?? 'unknown error'}`,
-    });
+        ['fulfilling'],
+      );
+    } else if (event.type === 'crawl.failed') {
+      await retryFailedAudit(
+        leadId,
+        `Audit crawl failed: ${event.error ?? 'unknown error'}. Review and retry.`,
+      );
+    }
+    await completeWebhookEvent('firecrawl', externalId);
+    return Response.json({ ok: true, matched: true });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Webhook processing failed';
+    await failWebhookEvent('firecrawl', externalId, message);
+    return Response.json({ error: message }, { status: 500 });
   }
-  return Response.json({ ok: true, matched: true });
 }

@@ -72,42 +72,59 @@ function syncInboundReplies() {
   var cfg = config_();
   var lastSync = Number(cfg.properties.getProperty('LAST_SYNC_MS') || 0);
   var overlap = Math.max(0, lastSync - 60000);
-  var newest = lastSync;
-  var payload = [];
-  var threads = GmailApp.search(
-    'label:' + WATCH_LABEL + ' in:inbox newer_than:30d',
-    0,
-    50,
-  );
-  threads.forEach(function (thread) {
-    thread.getMessages().forEach(function (message) {
-      var timestamp = message.getDate().getTime();
-      var sender = parseAddress_(message.getFrom());
-      if (
-        timestamp <= overlap ||
-        sender === cfg.businessEmail ||
-        message.isDraft()
-      )
-        return;
-      payload.push({
-        externalId: message.getId(),
-        from: sender,
-        subject: message.getSubject().slice(0, 300),
-        body: message.getPlainBody().slice(0, 20000),
+  var candidates = [];
+  var query = 'label:' + WATCH_LABEL + ' in:inbox newer_than:30d';
+  var start = 0;
+  var threads;
+  do {
+    threads = GmailApp.search(query, start, 50);
+    threads.forEach(function (thread) {
+      thread.getMessages().forEach(function (message) {
+        var timestamp = message.getDate().getTime();
+        var sender = parseAddress_(message.getFrom());
+        if (
+          timestamp <= overlap ||
+          sender === cfg.businessEmail ||
+          message.isDraft()
+        )
+          return;
+        candidates.push({
+          timestamp: timestamp,
+          payload: {
+            externalId: message.getId(),
+            from: sender,
+            subject: message.getSubject().slice(0, 300),
+            body: message.getPlainBody().slice(0, 20000),
+          },
+        });
       });
-      newest = Math.max(newest, timestamp);
     });
+    start += threads.length;
+  } while (threads.length === 50);
+  candidates.sort(function (left, right) {
+    return left.timestamp - right.timestamp;
   });
-  if (payload.length)
-    api_('/api/webhooks/gmail', 'post', { messages: payload.slice(0, 50) });
-  cfg.properties.setProperty(
-    'LAST_SYNC_MS',
-    String(Math.max(newest, Date.now() - 60000)),
-  );
+  var processed = candidates;
+  for (var offset = 0; offset < processed.length; offset += 50) {
+    var batch = processed.slice(offset, offset + 50);
+    api_('/api/webhooks/gmail', 'post', {
+      messages: batch.map(function (item) {
+        return item.payload;
+      }),
+    });
+  }
+  var checkpoint = processed.length
+    ? processed[processed.length - 1].timestamp
+    : Math.max(lastSync, Date.now() - 60000);
+  cfg.properties.setProperty('LAST_SYNC_MS', String(checkpoint));
 }
 
 function discoverBuyerIntent() {
   api_('/api/automation/discover', 'post', {});
+}
+
+function runRegressionWatch() {
+  api_('/api/automation/regression-watch', 'post', {});
 }
 
 function installTriggers() {
@@ -115,6 +132,7 @@ function installTriggers() {
     'createProposalDrafts',
     'syncInboundReplies',
     'discoverBuyerIntent',
+    'runRegressionWatch',
   ];
   ScriptApp.getProjectTriggers().forEach(function (trigger) {
     if (managed.indexOf(trigger.getHandlerFunction()) !== -1)
@@ -131,6 +149,11 @@ function installTriggers() {
   ScriptApp.newTrigger('discoverBuyerIntent')
     .timeBased()
     .atHour(7)
+    .everyDays(1)
+    .create();
+  ScriptApp.newTrigger('runRegressionWatch')
+    .timeBased()
+    .atHour(8)
     .everyDays(1)
     .create();
 }

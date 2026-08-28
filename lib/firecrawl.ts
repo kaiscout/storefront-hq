@@ -1,4 +1,5 @@
-import { scoreOpportunity } from '@/lib/pipeline';
+import { scoreOpportunity } from './pipeline.ts';
+import { sha256Hex } from './security.ts';
 
 const API_BASE = 'https://api.firecrawl.dev/v2';
 
@@ -149,6 +150,27 @@ export async function getCrawl(id: string) {
     completed?: number;
     total?: number;
     data?: ScrapeDocument[];
+  };
+}
+
+export async function storefrontSnapshot(document: ScrapeDocument) {
+  const normalizedMarkdown = (document.markdown ?? '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200_000);
+  const normalizedLinks = [...(document.links ?? [])]
+    .map((link) => link.replace(/[?#].*$/, ''))
+    .sort()
+    .slice(0, 2_000);
+  const statusCode = document.metadata?.statusCode;
+  const pageTitle = document.metadata?.title?.trim();
+  return {
+    contentHash: await sha256Hex(
+      JSON.stringify({ normalizedMarkdown, normalizedLinks, statusCode }),
+    ),
+    statusCode,
+    pageTitle,
   };
 }
 

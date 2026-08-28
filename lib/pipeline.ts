@@ -52,7 +52,7 @@ export const allowedTransitions: Record<PipelineStatus, PipelineStatus[]> = {
   discovered: ['qualified', 'closed_lost', 'suppressed'],
   qualified: ['proposal_ready', 'closed_lost', 'suppressed'],
   proposal_ready: ['drafted', 'closed_lost', 'suppressed'],
-  drafted: ['replied', 'closed_lost', 'suppressed'],
+  drafted: ['replied', 'booked', 'closed_lost', 'suppressed'],
   replied: ['booked', 'paid', 'closed_lost', 'suppressed'],
   booked: ['paid', 'closed_lost', 'suppressed'],
   paid: ['fulfilling'],

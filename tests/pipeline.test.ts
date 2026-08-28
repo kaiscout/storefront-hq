@@ -28,7 +28,9 @@ void test('classifies common reply states', () => {
 void test('pipeline rejects unsafe stage skipping', () => {
   assert.equal(canTransition('discovered', 'qualified'), true);
   assert.equal(canTransition('discovered', 'paid'), false);
+  assert.equal(canTransition('drafted', 'booked'), true);
   assert.equal(canTransition('paid', 'fulfilling'), true);
+  assert.equal(canTransition('fulfilling', 'paid'), false);
 });
 
 void test('intent scoring rewards explicit Shopify QA requests', () => {

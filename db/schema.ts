@@ -104,6 +104,53 @@ export const findings = sqliteTable(
   },
   (table) => [
     index('idx_findings_lead_severity').on(table.leadId, table.severity),
+    uniqueIndex('idx_findings_dedupe').on(
+      table.leadId,
+      table.url,
+      table.title,
+      table.evidence,
+    ),
+  ],
+);
+
+export const routeSnapshots = sqliteTable(
+  'route_snapshots',
+  {
+    id: text('id').primaryKey(),
+    leadId: text('lead_id')
+      .notNull()
+      .references(() => leads.id, { onDelete: 'cascade' }),
+    url: text('url').notNull(),
+    contentHash: text('content_hash').notNull(),
+    statusCode: integer('status_code'),
+    pageTitle: text('page_title'),
+    checkedAt: text('checked_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    changedAt: text('changed_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    uniqueIndex('idx_route_snapshots_lead_url').on(table.leadId, table.url),
+    index('idx_route_snapshots_checked').on(table.leadId, table.checkedAt),
+  ],
+);
+
+export const watchRoutes = sqliteTable(
+  'watch_routes',
+  {
+    id: text('id').primaryKey(),
+    leadId: text('lead_id')
+      .notNull()
+      .references(() => leads.id, { onDelete: 'cascade' }),
+    url: text('url').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    uniqueIndex('idx_watch_routes_lead_url').on(table.leadId, table.url),
   ],
 );
 
@@ -142,6 +189,10 @@ export const webhookEvents = sqliteTable(
     provider: text('provider').notNull(),
     externalId: text('external_id').notNull(),
     eventType: text('event_type').notNull(),
+    status: text('status').notNull().default('processed'),
+    leaseUntil: text('lease_until'),
+    processedAt: text('processed_at'),
+    lastError: text('last_error'),
     receivedAt: text('received_at')
       .notNull()
       .default(sql`(datetime('now'))`),

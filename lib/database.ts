@@ -70,6 +70,26 @@ const schemaStatements = [
     found_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
   `CREATE INDEX IF NOT EXISTS idx_findings_lead_severity ON findings(lead_id, severity)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_findings_dedupe ON findings(lead_id, url, title, evidence)`,
+  `CREATE TABLE IF NOT EXISTS watch_routes (
+    id TEXT PRIMARY KEY,
+    lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_watch_routes_lead_url ON watch_routes(lead_id, url)`,
+  `CREATE TABLE IF NOT EXISTS route_snapshots (
+    id TEXT PRIMARY KEY,
+    lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    status_code INTEGER,
+    page_title TEXT,
+    checked_at TEXT NOT NULL DEFAULT (datetime('now')),
+    changed_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_route_snapshots_lead_url ON route_snapshots(lead_id, url)`,
+  `CREATE INDEX IF NOT EXISTS idx_route_snapshots_checked ON route_snapshots(lead_id, checked_at)`,
   `CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
     dedupe_key TEXT NOT NULL,
@@ -91,6 +111,10 @@ const schemaStatements = [
     provider TEXT NOT NULL,
     external_id TEXT NOT NULL,
     event_type TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'processed',
+    lease_until TEXT,
+    processed_at TEXT,
+    last_error TEXT,
     received_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_webhook_provider_external ON webhook_events(provider, external_id)`,
@@ -107,12 +131,48 @@ export async function ensureSchema() {
   await database.batch(
     schemaStatements.map((statement) => database.prepare(statement)),
   );
+  const webhookColumns = await database
+    .prepare("PRAGMA table_info('webhook_events')")
+    .all<{ name: string }>();
+  const existing = new Set(webhookColumns.results.map((column) => column.name));
+  const additions = [
+    [
+      'status',
+      "ALTER TABLE webhook_events ADD COLUMN status TEXT NOT NULL DEFAULT 'processed'",
+    ],
+    ['lease_until', 'ALTER TABLE webhook_events ADD COLUMN lease_until TEXT'],
+    ['processed_at', 'ALTER TABLE webhook_events ADD COLUMN processed_at TEXT'],
+    ['last_error', 'ALTER TABLE webhook_events ADD COLUMN last_error TEXT'],
+  ] as const;
+  for (const [name, statement] of additions)
+    if (!existing.has(name)) await database.prepare(statement).run();
 }
 
 export async function listLeads(limit = 100) {
   await ensureSchema();
   const result = await d1()
     .prepare('SELECT * FROM leads ORDER BY updated_at DESC LIMIT ?')
+    .bind(Math.min(limit, 250))
+    .all<LeadRecord>();
+  return result.results;
+}
+
+export async function listDraftableDirectEmailLeads(limit = 250) {
+  await ensureSchema();
+  const result = await d1()
+    .prepare(
+      `SELECT leads.* FROM leads
+       WHERE leads.status = 'proposal_ready'
+         AND leads.explicit_intent = 1
+         AND leads.contact_channel = 'direct-email'
+         AND leads.contact_email IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM suppression
+           WHERE lower(suppression.identifier) = lower(leads.contact_email)
+         )
+       ORDER BY leads.updated_at ASC
+       LIMIT ?`,
+    )
     .bind(Math.min(limit, 250))
     .all<LeadRecord>();
   return result.results;
@@ -201,13 +261,7 @@ export async function createInboundLead(input: {
         id, company_name, store_url, contact_name, contact_email, contact_channel,
         source_url, source_title, explicit_intent, fit_score, status, next_action
       ) VALUES (?, ?, ?, ?, ?, 'inbound', ?, 'Website availability request', 1, 100, 'replied', 'Review request and offer a fit call')
-      ON CONFLICT(source_url) DO UPDATE SET
-        company_name = excluded.company_name,
-        store_url = excluded.store_url,
-        contact_name = excluded.contact_name,
-        contact_email = excluded.contact_email,
-        explicit_intent = 1,
-        updated_at = datetime('now')`,
+      ON CONFLICT(source_url) DO NOTHING`,
     )
     .bind(
       id,
@@ -218,29 +272,138 @@ export async function createInboundLead(input: {
       input.sourceUrl,
     )
     .run();
-  return id;
+  const stored = await d1()
+    .prepare('SELECT id FROM leads WHERE source_url = ?')
+    .bind(input.sourceUrl)
+    .first<{ id: string }>();
+  if (!stored) throw new Error('Inbound request could not be stored');
+  return stored.id;
 }
 
 export async function transitionLead(
   id: string,
   to: PipelineStatus,
-  options?: { force?: boolean; nextAction?: string },
+  options?: { nextAction?: string },
 ) {
   const lead = await getLead(id);
   if (!lead) throw new Error('Lead not found');
-  if (!options?.force && !canTransition(lead.status, to)) {
+  if (!canTransition(lead.status, to)) {
     throw new Error(`Invalid transition from ${lead.status} to ${to}`);
   }
-  await d1()
+  const result = await d1()
     .prepare(
       `UPDATE leads SET status = ?, next_action = ?, updated_at = datetime('now'),
        booked_at = CASE WHEN ? = 'booked' THEN datetime('now') ELSE booked_at END,
        paid_at = CASE WHEN ? = 'paid' THEN datetime('now') ELSE paid_at END
-       WHERE id = ?`,
+       WHERE id = ? AND status = ?`,
     )
-    .bind(to, options?.nextAction ?? null, to, to, id)
+    .bind(to, options?.nextAction ?? null, to, to, id, lead.status)
     .run();
-  return { ...lead, status: to };
+  if (!result.meta.changes)
+    throw new Error('Lead changed concurrently; refresh and retry');
+  return {
+    ...lead,
+    status: to,
+    next_action: options?.nextAction ?? null,
+  };
+}
+
+const forwardPipeline: PipelineStatus[] = [
+  'discovered',
+  'qualified',
+  'proposal_ready',
+  'drafted',
+  'replied',
+  'booked',
+  'paid',
+  'fulfilling',
+  'delivered',
+];
+
+export async function advanceLead(
+  id: string,
+  to: PipelineStatus,
+  nextAction: string,
+) {
+  let lead = await getLead(id);
+  if (!lead) throw new Error('Lead not found');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const fromIndex = forwardPipeline.indexOf(lead.status);
+    const toIndex = forwardPipeline.indexOf(to);
+    if (
+      fromIndex < 0 ||
+      toIndex <= fromIndex ||
+      !canTransition(lead.status, to)
+    )
+      return { ...lead, advanced: false };
+    const result = await d1()
+      .prepare(
+        `UPDATE leads SET status = ?, next_action = ?, updated_at = datetime('now'),
+         booked_at = CASE WHEN ? = 'booked' THEN datetime('now') ELSE booked_at END,
+         paid_at = CASE WHEN ? = 'paid' THEN datetime('now') ELSE paid_at END
+         WHERE id = ? AND status = ?`,
+      )
+      .bind(to, nextAction, to, to, id, lead.status)
+      .run();
+    if (result.meta.changes)
+      return {
+        ...lead,
+        status: to,
+        next_action: nextAction,
+        advanced: true,
+      };
+    const refreshed = await getLead(id);
+    if (!refreshed) throw new Error('Lead not found');
+    lead = refreshed;
+  }
+  return { ...lead, advanced: false };
+}
+
+export async function setLeadNextAction(
+  id: string,
+  nextAction: string,
+  onlyStatuses?: PipelineStatus[],
+) {
+  await ensureSchema();
+  if (!onlyStatuses?.length) {
+    await d1()
+      .prepare(
+        "UPDATE leads SET next_action = ?, updated_at = datetime('now') WHERE id = ?",
+      )
+      .bind(nextAction, id)
+      .run();
+    return;
+  }
+  const placeholders = onlyStatuses.map(() => '?').join(', ');
+  await d1()
+    .prepare(
+      `UPDATE leads SET next_action = ?, updated_at = datetime('now')
+       WHERE id = ? AND status IN (${placeholders})`,
+    )
+    .bind(nextAction, id, ...onlyStatuses)
+    .run();
+}
+
+export async function retryFailedAudit(id: string, nextAction: string) {
+  await ensureSchema();
+  await d1()
+    .prepare(
+      `UPDATE leads SET status = 'paid', next_action = ?, updated_at = datetime('now')
+       WHERE id = ? AND status = 'fulfilling'`,
+    )
+    .bind(nextAction, id)
+    .run();
+}
+
+export async function isSuppressed(identifier: string) {
+  await ensureSchema();
+  const row = await d1()
+    .prepare(
+      'SELECT 1 AS suppressed FROM suppression WHERE lower(identifier) = ? LIMIT 1',
+    )
+    .bind(identifier.trim().toLowerCase())
+    .first<{ suppressed: number }>();
+  return Boolean(row);
 }
 
 export async function markQualified(input: {
@@ -254,12 +417,16 @@ export async function markQualified(input: {
 }) {
   const lead = await getLead(input.id);
   if (!lead) throw new Error('Lead not found');
-  await d1()
+  if (lead.status !== 'discovered')
+    throw new Error(`Cannot qualify a lead in ${lead.status}`);
+  if (input.contactEmail && (await isSuppressed(input.contactEmail)))
+    throw new Error('This address is suppressed and cannot be drafted');
+  const result = await d1()
     .prepare(
       `UPDATE leads SET company_name = ?, store_url = ?, contact_email = ?, contact_channel = ?, proof_url = ?,
        proof_summary = ?, explicit_intent = 1, status = 'qualified',
        next_action = 'Review evidence and approve proposal', updated_at = datetime('now')
-       WHERE id = ?`,
+       WHERE id = ? AND status = 'discovered'`,
     )
     .bind(
       input.companyName,
@@ -271,6 +438,8 @@ export async function markQualified(input: {
       input.id,
     )
     .run();
+  if (!result.meta.changes)
+    throw new Error('Lead changed concurrently; refresh and retry');
 }
 
 export async function recordMessage(input: {
@@ -283,7 +452,7 @@ export async function recordMessage(input: {
   const email = input.from.trim().toLowerCase();
   const lead = await getLeadByEmail(email);
   const classification = classifyReply(`${input.subject ?? ''}\n${input.body}`);
-  await d1()
+  const inserted = await d1()
     .prepare(
       `INSERT OR IGNORE INTO messages (
         id, lead_id, external_id, direction, channel, subject, body_excerpt, classification
@@ -299,6 +468,9 @@ export async function recordMessage(input: {
     )
     .run();
 
+  if (!inserted.meta.changes)
+    return { leadId: lead?.id ?? null, classification, duplicate: true };
+
   if (classification === 'unsubscribe') {
     await d1()
       .prepare(
@@ -308,21 +480,39 @@ export async function recordMessage(input: {
       .run();
   }
   if (lead) {
-    const target: PipelineStatus =
-      classification === 'unsubscribe'
-        ? 'suppressed'
-        : classification === 'not_interested'
-          ? 'closed_lost'
-          : classification === 'booked'
-            ? 'booked'
-            : 'replied';
-    await transitionLead(lead.id, target, {
-      force: true,
-      nextAction:
-        classification === 'ambiguous'
-          ? 'Human review required'
-          : `Reply classified: ${classification}`,
-    });
+    const beforePayment = forwardPipeline.slice(
+      0,
+      forwardPipeline.indexOf('paid'),
+    );
+    const nextAction =
+      classification === 'ambiguous'
+        ? 'Human review required'
+        : `Reply classified: ${classification}`;
+    if (
+      (classification === 'unsubscribe' ||
+        classification === 'not_interested') &&
+      beforePayment.includes(lead.status)
+    ) {
+      await transitionLead(
+        lead.id,
+        classification === 'unsubscribe' ? 'suppressed' : 'closed_lost',
+        { nextAction },
+      );
+    } else if (classification === 'booked') {
+      await advanceLead(lead.id, 'booked', nextAction);
+    } else if (classification === 'out_of_office') {
+      await setLeadNextAction(lead.id, nextAction, beforePayment);
+    } else if (
+      classification !== 'unsubscribe' &&
+      classification !== 'not_interested'
+    ) {
+      await advanceLead(lead.id, 'replied', nextAction);
+    } else if (classification === 'unsubscribe') {
+      await setLeadNextAction(
+        lead.id,
+        'Marketing suppression recorded; active delivery stage preserved',
+      );
+    }
     await d1()
       .prepare("UPDATE leads SET last_reply_at = datetime('now') WHERE id = ?")
       .bind(lead.id)
@@ -331,7 +521,7 @@ export async function recordMessage(input: {
   return { leadId: lead?.id ?? null, classification };
 }
 
-export async function recordWebhookOnce(
+export async function claimWebhookEvent(
   provider: string,
   externalId: string,
   eventType: string,
@@ -339,11 +529,182 @@ export async function recordWebhookOnce(
   await ensureSchema();
   const result = await d1()
     .prepare(
-      'INSERT OR IGNORE INTO webhook_events (id, provider, external_id, event_type) VALUES (?, ?, ?, ?)',
+      `INSERT INTO webhook_events (
+        id, provider, external_id, event_type, status, lease_until
+      ) VALUES (?, ?, ?, ?, 'processing', datetime('now', '+5 minutes'))
+      ON CONFLICT(provider, external_id) DO UPDATE SET
+        event_type = excluded.event_type,
+        status = 'processing',
+        lease_until = datetime('now', '+5 minutes'),
+        processed_at = NULL,
+        last_error = NULL,
+        received_at = datetime('now')
+      WHERE webhook_events.status = 'failed'
+         OR (
+           webhook_events.status = 'processing'
+           AND webhook_events.lease_until < datetime('now')
+         )`,
     )
     .bind(crypto.randomUUID(), provider, externalId, eventType)
     .run();
   return Boolean(result.meta.changes);
+}
+
+export async function completeWebhookEvent(
+  provider: string,
+  externalId: string,
+) {
+  await ensureSchema();
+  await d1()
+    .prepare(
+      `UPDATE webhook_events SET status = 'processed', lease_until = NULL,
+       processed_at = datetime('now'), last_error = NULL
+       WHERE provider = ? AND external_id = ? AND status = 'processing'`,
+    )
+    .bind(provider, externalId)
+    .run();
+}
+
+export async function failWebhookEvent(
+  provider: string,
+  externalId: string,
+  error: string,
+) {
+  await ensureSchema();
+  await d1()
+    .prepare(
+      `UPDATE webhook_events SET status = 'failed', lease_until = NULL,
+       last_error = ? WHERE provider = ? AND external_id = ?`,
+    )
+    .bind(error.slice(0, 1000), provider, externalId)
+    .run();
+}
+
+export async function recordRouteSnapshot(input: {
+  leadId: string;
+  url: string;
+  contentHash: string;
+  statusCode?: number;
+  pageTitle?: string;
+}) {
+  await ensureSchema();
+  const existing = await d1()
+    .prepare(
+      `SELECT content_hash, status_code FROM route_snapshots
+       WHERE lead_id = ? AND url = ?`,
+    )
+    .bind(input.leadId, input.url)
+    .first<{ content_hash: string; status_code: number | null }>();
+  if (existing) {
+    const changed =
+      existing.content_hash !== input.contentHash ||
+      existing.status_code !== (input.statusCode ?? null);
+    await d1()
+      .prepare(
+        `UPDATE route_snapshots SET content_hash = ?, status_code = ?, page_title = ?,
+         checked_at = datetime('now'),
+         changed_at = CASE WHEN ? THEN datetime('now') ELSE changed_at END
+         WHERE lead_id = ? AND url = ?`,
+      )
+      .bind(
+        input.contentHash,
+        input.statusCode ?? null,
+        input.pageTitle ?? null,
+        changed ? 1 : 0,
+        input.leadId,
+        input.url,
+      )
+      .run();
+    return {
+      tracked: true,
+      baseline: false,
+      changed,
+      previousStatusCode: existing.status_code,
+    };
+  }
+  const inserted = await d1()
+    .prepare(
+      `INSERT INTO route_snapshots (
+        id, lead_id, url, content_hash, status_code, page_title
+      ) SELECT ?, ?, ?, ?, ?, ?
+      WHERE (SELECT COUNT(*) FROM route_snapshots WHERE lead_id = ?) < 10`,
+    )
+    .bind(
+      crypto.randomUUID(),
+      input.leadId,
+      input.url,
+      input.contentHash,
+      input.statusCode ?? null,
+      input.pageTitle ?? null,
+      input.leadId,
+    )
+    .run();
+  return {
+    tracked: Boolean(inserted.meta.changes),
+    baseline: Boolean(inserted.meta.changes),
+    changed: false,
+    previousStatusCode: null,
+  };
+}
+
+export async function listRegressionWatchTargets() {
+  await ensureSchema();
+  const rows = await d1()
+    .prepare(
+      `SELECT leads.id AS lead_id, watch_routes.url AS url
+       FROM leads
+       INNER JOIN watch_routes ON watch_routes.lead_id = leads.id
+       WHERE leads.paid_at IS NOT NULL
+         AND leads.paid_at >= datetime('now', '-30 days')
+         AND leads.status IN ('paid', 'fulfilling', 'delivered')
+       ORDER BY leads.paid_at ASC, watch_routes.created_at ASC`,
+    )
+    .all<{ lead_id: string; url: string }>();
+  const grouped = new Map<string, string[]>();
+  for (const row of rows.results)
+    grouped.set(row.lead_id, [...(grouped.get(row.lead_id) ?? []), row.url]);
+  return Array.from(grouped, ([leadId, routes]) => ({ leadId, routes }));
+}
+
+export async function listWatchRoutes() {
+  await ensureSchema();
+  const result = await d1()
+    .prepare(
+      'SELECT lead_id, url FROM watch_routes ORDER BY lead_id, created_at ASC',
+    )
+    .all<{ lead_id: string; url: string }>();
+  return result.results;
+}
+
+export async function replaceWatchRoutes(leadId: string, routes: string[]) {
+  await ensureSchema();
+  const database = d1();
+  const statements = [
+    database.prepare('DELETE FROM watch_routes WHERE lead_id = ?').bind(leadId),
+    ...routes.map((url) =>
+      database
+        .prepare('INSERT INTO watch_routes (id, lead_id, url) VALUES (?, ?, ?)')
+        .bind(crypto.randomUUID(), leadId, url),
+    ),
+  ];
+  if (routes.length) {
+    const placeholders = routes.map(() => '?').join(', ');
+    statements.push(
+      database
+        .prepare(
+          `DELETE FROM route_snapshots
+           WHERE lead_id = ? AND url NOT IN (${placeholders})`,
+        )
+        .bind(leadId, ...routes),
+    );
+  } else {
+    statements.push(
+      database
+        .prepare('DELETE FROM route_snapshots WHERE lead_id = ?')
+        .bind(leadId),
+    );
+  }
+  await database.batch(statements);
 }
 
 export async function addFinding(input: {
@@ -360,7 +721,7 @@ export async function addFinding(input: {
   await ensureSchema();
   await d1()
     .prepare(
-      `INSERT INTO findings (
+      `INSERT OR IGNORE INTO findings (
         id, lead_id, url, title, severity, category, evidence, recommendation, screenshot_url, status_code
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )

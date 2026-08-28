@@ -76,6 +76,7 @@ export function publicConfig() {
     calUrl.startsWith('https://') &&
     process.env.CAL_WEBHOOK_SECRET?.trim() &&
     checkoutUrl &&
+    process.env.STRIPE_PAYMENT_LINK_ID?.trim() &&
     process.env.STRIPE_WEBHOOK_SECRET?.trim() &&
     siteUrl.startsWith('https://'),
   );
@@ -98,7 +99,9 @@ export function integrationState() {
     gmail: Boolean(process.env.AUTOMATION_SECRET),
     cal: Boolean(process.env.CAL_BOOKING_URL && process.env.CAL_WEBHOOK_SECRET),
     payments: Boolean(
-      config.checkoutUrl && process.env.STRIPE_WEBHOOK_SECRET?.trim(),
+      config.checkoutUrl &&
+      process.env.STRIPE_PAYMENT_LINK_ID?.trim() &&
+      process.env.STRIPE_WEBHOOK_SECRET?.trim(),
     ),
     identity: Boolean(config.operatorName && config.contactEmail),
     operatorAccess: operatorOwnerEmails().length > 0,

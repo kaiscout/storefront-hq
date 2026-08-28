@@ -14,6 +14,7 @@ void test('public intake requires identity, private access, and every integratio
     CAL_BOOKING_URL: 'https://cal.example.test/fit',
     CAL_WEBHOOK_SECRET: 'test-cal-secret',
     CHECKOUT_URL: 'https://buy.stripe.com/14k8wP0example',
+    STRIPE_PAYMENT_LINK_ID: 'plink_live_offer',
     STRIPE_WEBHOOK_SECRET: 'test-stripe-secret',
     PUBLIC_SITE_URL: 'https://site.example.test',
   };
@@ -28,6 +29,16 @@ void test('public intake requires identity, private access, and every integratio
 
     Object.assign(process.env, values);
     assert.equal(publicConfig().launchReady, true);
+    assert.equal(integrationState().payments, true);
+    assert.equal(
+      JSON.stringify(publicConfig()).includes(values.STRIPE_PAYMENT_LINK_ID),
+      false,
+    );
+
+    delete process.env.STRIPE_PAYMENT_LINK_ID;
+    assert.equal(publicConfig().launchReady, false);
+    assert.equal(integrationState().payments, false);
+    process.env.STRIPE_PAYMENT_LINK_ID = values.STRIPE_PAYMENT_LINK_ID;
 
     for (const checkoutUrl of [
       'https://buy.stripe.com/test_eVa5nPg1j1wmfXq5kr',

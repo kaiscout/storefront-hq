@@ -5,18 +5,25 @@ import {
   failWebhookEvent,
   getLead,
 } from '@/lib/database';
-import { isClearedCheckoutPayment } from '@/lib/payments';
+import {
+  isClearedCheckoutPayment,
+  isExpectedLiveCheckoutPayment,
+} from '@/lib/payments';
 import { verifyStripeSignature } from '@/lib/security';
 
 type StripeEvent = {
   id: string;
   type: string;
+  livemode?: boolean;
   data: {
     object?: {
       id?: string;
       client_reference_id?: string | null;
       customer_details?: { email?: string | null } | null;
       payment_status?: string;
+      payment_link?: string | null;
+      amount_total?: number | null;
+      currency?: string | null;
     };
   };
 };
@@ -50,6 +57,20 @@ export async function POST(request: Request) {
       );
       if (!paymentCleared) {
         result = { ok: true, ignored: 'payment_pending' };
+      } else if (
+        !isExpectedLiveCheckoutPayment(
+          {
+            eventType: event.type,
+            livemode: event.livemode,
+            paymentStatus: object?.payment_status,
+            paymentLink: object?.payment_link,
+            amountTotal: object?.amount_total,
+            currency: object?.currency,
+          },
+          process.env.STRIPE_PAYMENT_LINK_ID ?? '',
+        )
+      ) {
+        result = { ok: true, ignored: 'unexpected_checkout' };
       } else {
         const lead = object?.client_reference_id
           ? await getLead(object.client_reference_id)

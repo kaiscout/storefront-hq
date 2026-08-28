@@ -77,6 +77,12 @@ export default function Home() {
               What you get
             </a>
             <Link
+              href="/sample-report"
+              className="hidden px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:block"
+            >
+              Sample report
+            </Link>
+            <Link
               href="/start"
               className={cn(
                 buttonVariants({ size: 'lg' }),
@@ -123,10 +129,19 @@ export default function Home() {
                 Start the £{offer.priceGbp} sprint{' '}
                 <ArrowRight data-icon="inline-end" />
               </Link>
+              <Link
+                href="/sample-report"
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-[#10261f] underline decoration-[#ff6b35] decoration-2 underline-offset-4"
+              >
+                View a sample evidence pack
+              </Link>
               <span className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
                 <ShieldCheck className="size-4 text-[#477a5b]" />
-                Fewer than {offer.minimumFindings} actionable issues? Full
-                refund.
+                Fewer than {offer.minimumFindings} reproducible in-scope issues?
+                Request a full refund within seven days.{' '}
+                <Link href="/terms" className="underline underline-offset-2">
+                  Terms
+                </Link>
               </span>
             </div>
           </div>
@@ -148,7 +163,7 @@ export default function Home() {
                   </div>
                   <span className="flex shrink-0 items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider">
                     <span className="size-2 animate-pulse rounded-full bg-[#a8d66d]" />
-                    Verified
+                    Illustrative
                   </span>
                 </div>
                 <CardDescription className="text-[#b9c6b7]">
@@ -274,12 +289,9 @@ export default function Home() {
               <Link href="/terms" className="underline underline-offset-2">
                 Terms
               </Link>
-              <Link href="/ops" className="underline underline-offset-2">
-                Operator
-              </Link>
             </nav>
           </div>
-          <p>No checkout completion · No customer data · No backend access</p>
+          <p>No checkout completion · No shopper records · No backend access</p>
         </div>
       </footer>
     </main>

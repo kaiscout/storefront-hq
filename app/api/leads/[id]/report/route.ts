@@ -1,8 +1,16 @@
-import { getLead, listFindings, listWatchRoutes } from '@/lib/database';
+import {
+  getLead,
+  listAuditPages,
+  listFindings,
+  listWatchRoutes,
+} from '@/lib/database';
 import { isOperatorRequest } from '@/lib/operator-auth';
 import {
+  auditCoverageSummary,
   evidencePackCsv,
+  sortAuditCoveragePages,
   sortEvidenceFindings,
+  toAuditCoveragePages,
   toEvidenceFindings,
 } from '@/lib/report';
 
@@ -22,11 +30,15 @@ export async function GET(
       { status: 409 },
     );
 
-  const [findingRows, watchRoutes] = await Promise.all([
+  const [findingRows, watchRoutes, auditPageRows] = await Promise.all([
     listFindings(id),
     listWatchRoutes(),
+    listAuditPages(id),
   ]);
   const findings = toEvidenceFindings(findingRows);
+  const auditPages = sortAuditCoveragePages(
+    toAuditCoveragePages(auditPageRows),
+  );
   const routes = watchRoutes
     .filter((row) => row.lead_id === id)
     .map((row) => row.url);
@@ -37,6 +49,7 @@ export async function GET(
       companyName: lead.company_name,
       storeUrl: lead.store_url,
       findings,
+      auditCoverage: auditPages,
     });
     const filename = `${
       lead.company_name
@@ -63,6 +76,10 @@ export async function GET(
         status: lead.status,
       },
       findings: sortEvidenceFindings(findings),
+      auditCoverage: {
+        summary: auditCoverageSummary(auditPages),
+        pages: auditPages,
+      },
       watchRoutes: routes,
     },
     { headers: { 'Cache-Control': 'private, no-store' } },

@@ -7,13 +7,21 @@ import {
 } from '@/components/ops/finding-editor';
 import { ReportActions } from '@/components/ops/report-actions';
 import { Badge } from '@/components/ui/badge';
-import { getLead, listFindings, listWatchRoutes } from '@/lib/database';
+import {
+  getLead,
+  listAuditPages,
+  listFindings,
+  listWatchRoutes,
+} from '@/lib/database';
 import { offer } from '@/lib/offer';
 import { currentOperator } from '@/lib/operator-auth';
 import {
+  auditCoverageSummary,
   evidenceSummary,
   isEvidencePackReady,
+  sortAuditCoveragePages,
   sortEvidenceFindings,
+  toAuditCoveragePages,
   toEvidenceFindings,
 } from '@/lib/report';
 
@@ -24,6 +32,12 @@ function severityTone(severity: string) {
   if (severity === 'high') return 'bg-[#f2c14e] text-[#10261f]';
   if (severity === 'medium') return 'bg-[#d9e8c8] text-[#244a32]';
   return 'bg-stone-200 text-stone-700';
+}
+
+function evidenceTime(value?: string | null) {
+  if (!value) return 'Not supplied';
+  const time = new Date(value);
+  return Number.isNaN(time.valueOf()) ? value : time.toLocaleString('en-GB');
 }
 
 export default async function EvidenceReportPage({
@@ -63,9 +77,10 @@ export default async function EvidenceReportPage({
       </main>
     );
   }
-  const [findingRows, watchRows] = await Promise.all([
+  const [findingRows, watchRows, auditPageRows] = await Promise.all([
     listFindings(id),
     listWatchRoutes(),
+    listAuditPages(id),
   ]);
   const findings = sortEvidenceFindings(toEvidenceFindings(findingRows)).slice(
     0,
@@ -73,6 +88,10 @@ export default async function EvidenceReportPage({
   );
   const summary = evidenceSummary(findings);
   const readiness = isEvidencePackReady(findings, offer.selectedFindings);
+  const auditPages = sortAuditCoveragePages(
+    toAuditCoveragePages(auditPageRows),
+  );
+  const coverage = auditCoverageSummary(auditPages);
   const watchRoutes = watchRows
     .filter((row) => row.lead_id === id)
     .map((row) => row.url);
@@ -110,7 +129,7 @@ export default async function EvidenceReportPage({
                 {lead.store_url}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-center">
+            <div className="grid grid-cols-3 gap-3 text-center">
               <div className="rounded-2xl bg-white/10 px-5 py-4">
                 <div className="text-3xl font-black">{findings.length}</div>
                 <div className="mt-1 text-xs text-[#b9c6b7]">
@@ -120,6 +139,10 @@ export default async function EvidenceReportPage({
               <div className="rounded-2xl bg-white/10 px-5 py-4">
                 <div className="text-3xl font-black">{watchRoutes.length}</div>
                 <div className="mt-1 text-xs text-[#b9c6b7]">watch routes</div>
+              </div>
+              <div className="rounded-2xl bg-white/10 px-5 py-4">
+                <div className="text-3xl font-black">{coverage.total}</div>
+                <div className="mt-1 text-xs text-[#b9c6b7]">pages audited</div>
               </div>
             </div>
           </div>
@@ -258,6 +281,95 @@ export default async function EvidenceReportPage({
                 </div>
               )}
             </div>
+          </section>
+
+          <section className="break-before-page border-t pt-8">
+            <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-[#477a5b]">
+                  Audit coverage appendix
+                </p>
+                <h2 className="mt-2 text-3xl font-black tracking-[-0.035em]">
+                  Every page Firecrawl returned
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  This ledger records captured public pages independently from
+                  the selected findings. Missing metadata remains visibly
+                  missing; it is never inferred.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="rounded-xl bg-[#d9e8c8]/70 px-3 py-3">
+                  <strong className="block text-xl">
+                    {coverage.successful}
+                  </strong>
+                  2xx
+                </div>
+                <div className="rounded-xl bg-[#f2c14e]/30 px-3 py-3">
+                  <strong className="block text-xl">
+                    {coverage.clientError + coverage.serverError}
+                  </strong>
+                  4xx/5xx
+                </div>
+                <div className="rounded-xl bg-[#10261f]/5 px-3 py-3">
+                  <strong className="block text-xl">
+                    {coverage.screenshots}
+                  </strong>
+                  screenshots
+                </div>
+              </div>
+            </div>
+            {auditPages.length ? (
+              <div className="mt-6 overflow-x-auto rounded-2xl border bg-white/70">
+                <table className="w-full min-w-[760px] border-collapse text-left text-xs">
+                  <thead className="bg-[#10261f] text-[#f8f4e8]">
+                    <tr>
+                      <th className="px-4 py-3">HTTP</th>
+                      <th className="px-4 py-3">Page</th>
+                      <th className="px-4 py-3">Title</th>
+                      <th className="px-4 py-3">Captured / recorded</th>
+                      <th className="px-4 py-3">Evidence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditPages.map((page) => (
+                      <tr key={page.id} className="border-t align-top">
+                        <td className="px-4 py-3 font-mono font-bold">
+                          {page.status_code ?? '—'}
+                        </td>
+                        <td className="max-w-sm break-all px-4 py-3 font-mono">
+                          {page.url}
+                        </td>
+                        <td className="px-4 py-3">
+                          {page.page_title || 'Not supplied'}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          {evidenceTime(page.captured_at || page.recorded_at)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {page.screenshot_url ? (
+                            <a
+                              href={page.screenshot_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="report-screenshot font-bold text-[#477a5b] underline underline-offset-4"
+                            >
+                              Screenshot
+                            </a>
+                          ) : (
+                            'No screenshot supplied'
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="mt-6 rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
+                Coverage rows appear as Firecrawl returns audit pages.
+              </div>
+            )}
           </section>
 
           <section className="grid gap-6 border-t pt-8 md:grid-cols-2">

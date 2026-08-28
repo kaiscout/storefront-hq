@@ -14,7 +14,7 @@ The canonical offer values live in [`lib/offer.ts`](./lib/offer.ts). Keep public
 - Redirect CSV and copy-ready fixes for the priority issues
 - 20-minute handoff through Cal where channel rules permit
 - Daily observation of up to 10 agreed public routes for 30 days; enter the agreed URLs in the control room after the handoff
-- Fewer than eight actionable findings: full refund
+- Fewer than eight reproducible, actionable findings within the agreed public scope: a full refund may be requested within seven days of delivery
 - No backend access, retainer or implementation upsell
 
 ## Buyer filter
@@ -32,7 +32,7 @@ Skip pre-revenue dropshippers, regulated products, full rebuilds and anyone aski
 
 ## Daily plan
 
-- **Day 0:** Complete the launch gate: verified operator identity, dedicated business inbox, Firecrawl, Cal, payment processor and deployed environment secrets. Set `CHECKOUT_URL`, the server-only `STRIPE_PAYMENT_LINK_ID` (`plink_...`) and `STRIPE_WEBHOOK_SECRET` for Stripe. A payment advances fulfilment only when Stripe reports a live Checkout Session from that Payment Link for exactly £895 GBP.
+- **Day 0:** Complete the launch gate: verified operator identity, dedicated business inbox, Firecrawl, Cal, payment processor and deployed environment secrets. Set `CHECKOUT_URL`, the server-only `STRIPE_PAYMENT_LINK_ID` (`plink_...`) and `STRIPE_WEBHOOK_SECRET` for Stripe. A payment advances fulfilment only when Stripe reports a live Checkout Session from that Payment Link for exactly £895 GBP and the reference resolves to the intended booked lead. Cleared but ambiguous money is held in the reconciliation queue and must not be ignored.
 - **Days 1–2:** Review 15–20 fresh intent candidates daily. Qualify only strong matches. Submit 8–10 evidence-led proposals daily in the allowed channel.
 - **Days 3–4:** Continue new proposals. Answer interested replies promptly, run fit calls, and send the tracked payment link only after scope confirmation.
 - **Day 5:** Close and collect one £895 payment. Start the crawl as soon as payment is confirmed.

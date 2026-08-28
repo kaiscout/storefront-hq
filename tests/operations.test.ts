@@ -111,3 +111,40 @@ void test('Apps Script schedules protected operations without adding a send API'
   assert.doesNotMatch(source, /\/(?:messages|drafts)\/send\b/i);
   assert.doesNotMatch(source, /GmailApp\.(?:sendEmail|createDraft)/);
 });
+
+void test('consented website enquiries enter the draft-first Gmail queue', () => {
+  const databaseSource = readFileSync(
+    new URL('../lib/database.ts', import.meta.url),
+    'utf8',
+  );
+  const draftRouteSource = readFileSync(
+    new URL('../app/api/automation/gmail-drafts/route.ts', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(
+    databaseSource,
+    /leads\.status = 'replied'[\s\S]*leads\.contact_channel = 'inbound'[\s\S]*leads\.last_contact_at IS NULL/,
+  );
+  assert.match(
+    draftRouteSource,
+    /lead\.contact_channel === 'inbound'[\s\S]*lead\.status === 'replied'/,
+  );
+  assert.match(
+    draftRouteSource,
+    /Review the consented inbound reply draft before sending/,
+  );
+  const batchLimit = draftRouteSource.match(
+    /const gmailDraftBatchLimit = (\d+);/,
+  );
+  assert.ok(batchLimit);
+  assert.ok(Number(batchLimit[1]) <= 50);
+  assert.match(
+    draftRouteSource,
+    /listDraftableDirectEmailLeads\(gmailDraftBatchLimit\)/,
+  );
+  assert.match(
+    draftRouteSource,
+    /z\.array\(z\.uuid\(\)\)\.max\(gmailDraftBatchLimit\)/,
+  );
+});

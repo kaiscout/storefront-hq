@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  auditPageEvidence,
   deriveCorpusFindings,
   deriveDeterministicFindings,
   discoverExplicitIntent,
@@ -10,6 +11,41 @@ import {
   selectStorefrontPreflightRoutes,
   storefrontSnapshot,
 } from '../lib/firecrawl.ts';
+
+void test('audit coverage uses only page metadata Firecrawl actually supplied', () => {
+  assert.deepEqual(
+    auditPageEvidence({
+      screenshot: 'https://img.example/capture.png',
+      metadata: {
+        sourceURL: 'https://shop.example/products/item',
+        statusCode: 200,
+        title: '  Product title  ',
+        cachedAt: '2026-08-28T10:15:00.000Z',
+      },
+    }),
+    {
+      url: 'https://shop.example/products/item',
+      statusCode: 200,
+      pageTitle: 'Product title',
+      screenshotUrl: 'https://img.example/capture.png',
+      capturedAt: '2026-08-28T10:15:00.000Z',
+    },
+  );
+
+  assert.deepEqual(
+    auditPageEvidence({
+      metadata: { url: 'https://shop.example/pages/untitled' },
+    }),
+    {
+      url: 'https://shop.example/pages/untitled',
+      statusCode: undefined,
+      pageTitle: undefined,
+      screenshotUrl: undefined,
+      capturedAt: undefined,
+    },
+  );
+  assert.equal(auditPageEvidence({ metadata: { title: 'No URL' } }), null);
+});
 
 void test('storefront fingerprints ignore superficial ordering and detect status changes', async () => {
   const first = await storefrontSnapshot({
@@ -35,11 +71,11 @@ void test('storefront fingerprints ignore superficial ordering and detect status
 void test('discovery filters noisy pages and ranks recent replyable requests first', async () => {
   const originalFetch = globalThis.fetch;
   const originalApiKey = process.env.FIRECRAWL_API_KEY;
-  let requestBody: Record<string, unknown> | undefined;
+  const requestBodies: Record<string, unknown>[] = [];
   process.env.FIRECRAWL_API_KEY = 'test-key';
   globalThis.fetch = async (_input, init) => {
     if (typeof init?.body !== 'string') throw new Error('Expected JSON body');
-    requestBody = JSON.parse(init.body) as Record<string, unknown>;
+    requestBodies.push(JSON.parse(init.body) as Record<string, unknown>);
     return new Response(
       JSON.stringify({
         success: true,
@@ -98,8 +134,52 @@ void test('discovery filters noisy pages and ranks recent replyable requests fir
     assert.equal(results[0].contactChannel, 'source-platform');
     assert.equal(results[1].contactChannel, 'direct-email');
     assert.equal(results[1].contactEmail, 'owner@merchant.example');
-    assert.equal(requestBody?.tbs, 'qdr:w,sbd:1');
-    assert.match(String(requestBody?.query), /-career/);
+    assert.deepEqual(
+      requestBodies
+        .map((body) => body.country)
+        .sort((left, right) => String(left).localeCompare(String(right))),
+      ['UK', 'US'],
+    );
+    assert.equal(requestBodies[0]?.tbs, 'qdr:w,sbd:1');
+    assert.match(String(requestBodies[0]?.query), /-career/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalApiKey === undefined) delete process.env.FIRECRAWL_API_KEY;
+    else process.env.FIRECRAWL_API_KEY = originalApiKey;
+  }
+});
+
+void test('discovery keeps one market running when the other search fails', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalApiKey = process.env.FIRECRAWL_API_KEY;
+  process.env.FIRECRAWL_API_KEY = 'test-key';
+  globalThis.fetch = async (_input, init) => {
+    if (typeof init?.body !== 'string') throw new Error('Expected JSON body');
+    const body = JSON.parse(init.body) as { country?: string };
+    if (body.country === 'UK')
+      return new Response('temporary upstream failure', { status: 503 });
+    return Response.json({
+      success: true,
+      data: {
+        web: [
+          {
+            title: 'Need help auditing our Shopify storefront',
+            description:
+              'We need someone to test mobile buying paths and broken links this week.',
+            url: 'https://www.reddit.com/r/shopify/comments/us123/audit_help/',
+            date: '3 hours ago',
+          },
+        ],
+      },
+    });
+  };
+
+  try {
+    const results = await discoverExplicitIntent();
+    assert.deepEqual(
+      results.map((result) => result.url),
+      ['https://www.reddit.com/r/shopify/comments/us123/audit_help/'],
+    );
   } finally {
     globalThis.fetch = originalFetch;
     if (originalApiKey === undefined) delete process.env.FIRECRAWL_API_KEY;

@@ -113,6 +113,31 @@ export const findings = sqliteTable(
   ],
 );
 
+export const auditPages = sqliteTable(
+  'audit_pages',
+  {
+    id: text('id').primaryKey(),
+    leadId: text('lead_id')
+      .notNull()
+      .references(() => leads.id, { onDelete: 'cascade' }),
+    url: text('url').notNull(),
+    statusCode: integer('status_code'),
+    pageTitle: text('page_title'),
+    screenshotUrl: text('screenshot_url'),
+    capturedAt: text('captured_at'),
+    recordedAt: text('recorded_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    uniqueIndex('idx_audit_pages_lead_url').on(table.leadId, table.url),
+    index('idx_audit_pages_lead_recorded').on(table.leadId, table.recordedAt),
+  ],
+);
+
 export const routeSnapshots = sqliteTable(
   'route_snapshots',
   {
@@ -193,6 +218,7 @@ export const webhookEvents = sqliteTable(
     leaseUntil: text('lease_until'),
     processedAt: text('processed_at'),
     lastError: text('last_error'),
+    resultJson: text('result_json'),
     receivedAt: text('received_at')
       .notNull()
       .default(sql`(datetime('now'))`),
@@ -202,5 +228,26 @@ export const webhookEvents = sqliteTable(
       table.provider,
       table.externalId,
     ),
+  ],
+);
+
+export const stripeCheckoutSessions = sqliteTable(
+  'stripe_checkout_sessions',
+  {
+    sessionId: text('session_id').primaryKey(),
+    outcome: text('outcome').notNull(),
+    outcomeRank: integer('outcome_rank').notNull(),
+    eventCreated: integer('event_created').notNull(),
+    eventId: text('event_id').notNull(),
+    leadId: text('lead_id'),
+    amountTotal: integer('amount_total'),
+    currency: text('currency'),
+    paymentStatus: text('payment_status'),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('idx_stripe_checkout_outcome').on(table.outcome, table.updatedAt),
   ],
 );

@@ -13,10 +13,21 @@ import { LeadActions } from '@/components/ops/lead-actions';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { integrationState, publicConfig } from '@/lib/config';
-import { listLeads, listWatchRoutes, pipelineCounts } from '@/lib/database';
+import {
+  listLeads,
+  listRecentStripeEvents,
+  listWatchRoutes,
+  pipelineCounts,
+} from '@/lib/database';
 import { offer } from '@/lib/offer';
 import { deliverySlaSummary } from '@/lib/operations';
 import { currentOperator } from '@/lib/operator-auth';
+import {
+  formatGbpPence,
+  parsePaymentSignal,
+  paymentSignalLabel,
+  type PaymentSignalOutcome,
+} from '@/lib/payment-signals';
 import { buildProposal, type PipelineStatus } from '@/lib/pipeline';
 
 export const dynamic = 'force-dynamic';
@@ -42,6 +53,20 @@ function statusTone(status: PipelineStatus) {
     return 'bg-stone-200 text-stone-600';
   return 'bg-[#ff6b35]/12 text-[#a43712]';
 }
+
+function paymentSignalTone(outcome: PaymentSignalOutcome) {
+  if (outcome === 'cleared_expected') return 'bg-[#d9e8c8] text-[#244a32]';
+  if (outcome === 'cleared_needs_reconciliation')
+    return 'bg-[#ff6b35]/15 text-[#a43712]';
+  if (outcome === 'pending_expected') return 'bg-[#f2c14e]/35 text-[#6d4c00]';
+  return 'bg-red-100 text-red-700';
+}
+
+const paymentSignalTime = new Intl.DateTimeFormat('en-GB', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'Europe/London',
+});
 
 export default async function OpsPage() {
   const operator = await currentOperator();
@@ -74,11 +99,18 @@ export default async function OpsPage() {
     );
   }
 
-  const [leads, counts, watchRouteRows] = await Promise.all([
+  const [leads, counts, watchRouteRows, stripeEvents] = await Promise.all([
     listLeads(),
     pipelineCounts(),
     listWatchRoutes(),
+    listRecentStripeEvents(),
   ]);
+  const paymentSignals = stripeEvents
+    .flatMap((event) => {
+      const signal = parsePaymentSignal(event);
+      return signal ? [signal] : [];
+    })
+    .slice(0, 6);
   const watchRoutesByLead = new Map<string, string[]>();
   for (const row of watchRouteRows)
     watchRoutesByLead.set(row.lead_id, [
@@ -168,6 +200,55 @@ export default async function OpsPage() {
             </CardContent>
           </Card>
         </section>
+
+        <Card className="gap-3 rounded-2xl bg-[#f8f4e8] py-5">
+          <CardHeader className="px-5">
+            <div className="flex items-center gap-2">
+              <CircleDollarSign className="size-4 text-[#477a5b]" />
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#477a5b]">
+                Verified payment signals
+              </p>
+            </div>
+            <CardTitle className="text-xl font-black">
+              Expected Stripe checkout activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-5">
+            {paymentSignals.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No verified payment signals
+              </p>
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {paymentSignals.map((signal) => (
+                  <div
+                    key={signal.eventId}
+                    className="flex items-center justify-between gap-4 rounded-xl border border-[#10261f]/10 bg-white/55 px-4 py-3"
+                  >
+                    <div>
+                      <Badge
+                        className={`border-0 ${paymentSignalTone(signal.outcome)}`}
+                      >
+                        {paymentSignalLabel(signal.outcome)}
+                      </Badge>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {paymentSignalTime.format(new Date(signal.receivedAt))}
+                      </p>
+                      {signal.outcome === 'cleared_needs_reconciliation' ? (
+                        <p className="mt-1 text-xs font-semibold text-[#a43712]">
+                          Do not leave fulfilment unlinked.
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="font-mono text-sm font-black">
+                      {formatGbpPence(signal.amountPence)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <section className="rounded-2xl border border-[#10261f]/15 bg-[#f8f4e8]">
           <div className="flex flex-col gap-3 border-b border-[#10261f]/10 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">

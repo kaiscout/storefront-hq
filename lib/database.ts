@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 
+import { auditPageUpsertSql } from '@/lib/audit-coverage';
 import {
   canTransition,
   classifyReply,
@@ -15,6 +16,7 @@ import {
   unsuccessfulLeadStatuses,
 } from '@/lib/operations';
 import { offer } from '@/lib/offer';
+import { stripeRevenueOutcomeRank } from '@/lib/payments';
 
 const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS leads (
@@ -80,6 +82,19 @@ const schemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_findings_lead_severity ON findings(lead_id, severity)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_findings_dedupe ON findings(lead_id, url, title, evidence)`,
+  `CREATE TABLE IF NOT EXISTS audit_pages (
+    id TEXT PRIMARY KEY,
+    lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    status_code INTEGER,
+    page_title TEXT,
+    screenshot_url TEXT,
+    captured_at TEXT,
+    recorded_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_pages_lead_url ON audit_pages(lead_id, url)`,
+  `CREATE INDEX IF NOT EXISTS idx_audit_pages_lead_recorded ON audit_pages(lead_id, recorded_at)`,
   `CREATE TABLE IF NOT EXISTS watch_routes (
     id TEXT PRIMARY KEY,
     lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
@@ -124,9 +139,23 @@ const schemaStatements = [
     lease_until TEXT,
     processed_at TEXT,
     last_error TEXT,
+    result_json TEXT,
     received_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_webhook_provider_external ON webhook_events(provider, external_id)`,
+  `CREATE TABLE IF NOT EXISTS stripe_checkout_sessions (
+    session_id TEXT PRIMARY KEY,
+    outcome TEXT NOT NULL,
+    outcome_rank INTEGER NOT NULL,
+    event_created INTEGER NOT NULL,
+    event_id TEXT NOT NULL,
+    lead_id TEXT,
+    amount_total INTEGER,
+    currency TEXT,
+    payment_status TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_stripe_checkout_outcome ON stripe_checkout_sessions(outcome, updated_at)`,
   `PRAGMA optimize`,
 ];
 
@@ -152,6 +181,7 @@ export async function ensureSchema() {
     ['lease_until', 'ALTER TABLE webhook_events ADD COLUMN lease_until TEXT'],
     ['processed_at', 'ALTER TABLE webhook_events ADD COLUMN processed_at TEXT'],
     ['last_error', 'ALTER TABLE webhook_events ADD COLUMN last_error TEXT'],
+    ['result_json', 'ALTER TABLE webhook_events ADD COLUMN result_json TEXT'],
   ] as const;
   for (const [name, statement] of additions)
     if (!existing.has(name)) await database.prepare(statement).run();
@@ -171,9 +201,19 @@ export async function listDraftableDirectEmailLeads(limit = 250) {
   const result = await d1()
     .prepare(
       `SELECT leads.* FROM leads
-       WHERE leads.status = 'proposal_ready'
+       WHERE (
+           (leads.status = 'proposal_ready' AND leads.contact_channel = 'direct-email')
+           OR (
+             leads.status = 'replied'
+             AND leads.contact_channel = 'inbound'
+             AND leads.last_contact_at IS NULL
+             AND (
+               leads.next_action IS NULL
+               OR leads.next_action = 'Review request and offer a fit call'
+             )
+           )
+         )
          AND leads.explicit_intent = 1
-         AND leads.contact_channel = 'direct-email'
          AND leads.contact_email IS NOT NULL
          AND NOT EXISTS (
            SELECT 1 FROM suppression
@@ -213,6 +253,20 @@ export async function getLeadByEmail(email: string) {
     )
     .bind(email.trim().toLowerCase())
     .first<LeadRecord>();
+}
+
+export async function listLeadsByEmail(email: string, limit = 10) {
+  await ensureSchema();
+  const result = await d1()
+    .prepare(
+      `SELECT * FROM leads
+       WHERE lower(contact_email) = ?
+       ORDER BY updated_at DESC
+       LIMIT ?`,
+    )
+    .bind(email.trim().toLowerCase(), Math.max(1, Math.min(limit, 25)))
+    .all<LeadRecord>();
+  return result.results;
 }
 
 export async function insertDiscoveredOpportunities(
@@ -650,8 +704,8 @@ export async function recordOutboundContact(input: {
   await ensureSchema();
   const lead = await getLead(input.leadId);
   if (!lead) throw new Error('Lead not found');
-  if (lead.contact_channel !== 'direct-email')
-    throw new Error('Only direct-email leads can record Gmail contact');
+  if (!['direct-email', 'inbound'].includes(lead.contact_channel))
+    throw new Error('Only consented email leads can record Gmail contact');
   const sentAt = new Date(input.sentAt);
   if (!Number.isFinite(sentAt.getTime())) throw new Error('Invalid sent time');
   const sentAtIso = sentAt.toISOString();
@@ -682,25 +736,29 @@ export async function recordOutboundContact(input: {
            ELSE last_contact_at
          END,
          next_action = CASE
-           WHEN status = 'drafted'
+           WHEN status IN ('drafted', 'replied')
              AND (
                next_action IS NULL OR trim(next_action) = ''
                OR next_action = 'Review the Gmail draft and send only if channel rules allow'
+               OR next_action = 'Review the consented inbound reply draft before sending'
+               OR next_action = 'Review request and offer a fit call'
                OR next_action LIKE '[Outbound] %'
              )
              THEN ?
            ELSE next_action
          END,
          updated_at = datetime('now')
-       WHERE id = ? AND contact_channel = 'direct-email'
+       WHERE id = ? AND contact_channel IN ('direct-email', 'inbound')
          AND (
            last_contact_at IS NULL OR datetime(last_contact_at) < datetime(?)
            OR (
-             status = 'drafted'
+             status IN ('drafted', 'replied')
              AND COALESCE(next_action, '') <> ?
              AND (
                next_action IS NULL OR trim(next_action) = ''
                OR next_action = 'Review the Gmail draft and send only if channel rules allow'
+               OR next_action = 'Review the consented inbound reply draft before sending'
+               OR next_action = 'Review request and offer a fit call'
                OR next_action LIKE '[Outbound] %'
              )
            )
@@ -733,6 +791,7 @@ export async function claimWebhookEvent(
         lease_until = datetime('now', '+5 minutes'),
         processed_at = NULL,
         last_error = NULL,
+        result_json = NULL,
         received_at = datetime('now')
       WHERE webhook_events.status = 'failed'
          OR (
@@ -748,16 +807,112 @@ export async function claimWebhookEvent(
 export async function completeWebhookEvent(
   provider: string,
   externalId: string,
+  result?: Record<string, unknown>,
 ) {
   await ensureSchema();
+  const resultJson = result ? JSON.stringify(result).slice(0, 4000) : null;
   await d1()
     .prepare(
       `UPDATE webhook_events SET status = 'processed', lease_until = NULL,
-       processed_at = datetime('now'), last_error = NULL
+       processed_at = datetime('now'), last_error = NULL, result_json = ?
        WHERE provider = ? AND external_id = ? AND status = 'processing'`,
     )
-    .bind(provider, externalId)
+    .bind(resultJson, provider, externalId)
     .run();
+}
+
+export async function listRecentStripeEvents(limit = 20) {
+  await ensureSchema();
+  const result = await d1()
+    .prepare(
+      `SELECT external_id, event_type, status, result_json, processed_at,
+              last_error, received_at
+       FROM webhook_events
+       WHERE provider = 'stripe'
+       ORDER BY received_at DESC
+       LIMIT ?`,
+    )
+    .bind(Math.max(1, Math.min(Math.floor(limit), 50)))
+    .all<{
+      external_id: string;
+      event_type: string;
+      status: string;
+      result_json: string | null;
+      processed_at: string | null;
+      last_error: string | null;
+      received_at: string;
+    }>();
+  return result.results;
+}
+
+export type StoredStripeCheckoutOutcome = keyof typeof stripeRevenueOutcomeRank;
+
+export async function recordStripeCheckoutOutcome(input: {
+  sessionId: string;
+  eventId: string;
+  eventCreated: number;
+  outcome: StoredStripeCheckoutOutcome;
+  leadId?: string | null;
+  amountTotal?: number | null;
+  currency?: string | null;
+  paymentStatus?: string | null;
+}) {
+  await ensureSchema();
+  const database = d1();
+  const write = await database
+    .prepare(
+      `INSERT INTO stripe_checkout_sessions (
+         session_id, outcome, outcome_rank, event_created, event_id, lead_id,
+         amount_total, currency, payment_status
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(session_id) DO UPDATE SET
+         outcome = excluded.outcome,
+         outcome_rank = excluded.outcome_rank,
+         event_created = excluded.event_created,
+         event_id = excluded.event_id,
+         lead_id = COALESCE(excluded.lead_id, stripe_checkout_sessions.lead_id),
+         amount_total = excluded.amount_total,
+         currency = excluded.currency,
+         payment_status = excluded.payment_status,
+         updated_at = datetime('now')
+       WHERE excluded.outcome_rank > stripe_checkout_sessions.outcome_rank
+          OR (
+            excluded.outcome_rank = stripe_checkout_sessions.outcome_rank
+            AND excluded.event_created >= stripe_checkout_sessions.event_created
+          )`,
+    )
+    .bind(
+      input.sessionId,
+      input.outcome,
+      stripeRevenueOutcomeRank[input.outcome],
+      input.eventCreated,
+      input.eventId,
+      input.leadId ?? null,
+      input.amountTotal ?? null,
+      input.currency?.toLowerCase() ?? null,
+      input.paymentStatus ?? null,
+    )
+    .run();
+  const current = await database
+    .prepare(
+      `SELECT outcome, event_id, lead_id, event_created
+       FROM stripe_checkout_sessions WHERE session_id = ?`,
+    )
+    .bind(input.sessionId)
+    .first<{
+      outcome: StoredStripeCheckoutOutcome;
+      event_id: string;
+      lead_id: string | null;
+      event_created: number;
+    }>();
+  if (!current) throw new Error('Stripe checkout outcome was not stored');
+  return {
+    applied: Boolean(write.meta.changes),
+    outcome: current.outcome,
+    eventId: current.event_id,
+    leadId: current.lead_id,
+    eventCreated: current.event_created,
+  };
 }
 
 export async function failWebhookEvent(
@@ -977,6 +1132,62 @@ export async function listFindings(leadId: string) {
   await ensureSchema();
   const result = await d1()
     .prepare('SELECT * FROM findings WHERE lead_id = ? ORDER BY found_at DESC')
+    .bind(leadId)
+    .all<Record<string, unknown>>();
+  return result.results;
+}
+
+export type AuditPageInput = {
+  leadId: string;
+  url: string;
+  statusCode?: number;
+  pageTitle?: string;
+  screenshotUrl?: string;
+  capturedAt?: string;
+};
+
+function auditPageUpsert(database: D1Database, input: AuditPageInput) {
+  return database
+    .prepare(auditPageUpsertSql)
+    .bind(
+      crypto.randomUUID(),
+      input.leadId,
+      input.url,
+      input.statusCode ?? null,
+      input.pageTitle?.trim() || null,
+      input.screenshotUrl ?? null,
+      input.capturedAt ?? null,
+    );
+}
+
+export async function recordAuditPages(inputs: AuditPageInput[]) {
+  if (!inputs.length) return { processed: 0 };
+  await ensureSchema();
+  const database = d1();
+  const chunkSize = 50;
+  for (let index = 0; index < inputs.length; index += chunkSize) {
+    await database.batch(
+      inputs
+        .slice(index, index + chunkSize)
+        .map((input) => auditPageUpsert(database, input)),
+    );
+  }
+  return { processed: inputs.length };
+}
+
+export async function recordAuditPage(input: AuditPageInput) {
+  const result = await recordAuditPages([input]);
+  return { recorded: result.processed === 1 };
+}
+
+export async function listAuditPages(leadId: string) {
+  await ensureSchema();
+  const result = await d1()
+    .prepare(
+      `SELECT * FROM audit_pages
+       WHERE lead_id = ?
+       ORDER BY url ASC`,
+    )
     .bind(leadId)
     .all<Record<string, unknown>>();
   return result.results;

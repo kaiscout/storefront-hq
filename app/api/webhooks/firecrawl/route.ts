@@ -4,10 +4,12 @@ import {
   claimWebhookEvent,
   completeWebhookEvent,
   failWebhookEvent,
+  recordAuditPages,
   retryFailedAudit,
   setLeadNextAction,
 } from '@/lib/database';
 import {
+  auditPageEvidence,
   deriveCorpusFindings,
   deriveDeterministicFindings,
   getCrawl,
@@ -49,6 +51,12 @@ export async function POST(request: Request) {
     } else if (event.type === 'crawl.started') {
       await advanceLead(leadId, 'fulfilling', 'Audit crawl in progress');
     } else if (event.type === 'crawl.page') {
+      await recordAuditPages(
+        (event.data ?? [])
+          .map((document) => auditPageEvidence(document))
+          .filter((page): page is NonNullable<typeof page> => page !== null)
+          .map((page) => ({ leadId, ...page })),
+      );
       for (const document of event.data ?? []) {
         const url =
           document.metadata?.sourceURL ?? document.metadata?.url ?? '';
@@ -66,6 +74,12 @@ export async function POST(request: Request) {
     } else if (event.type === 'crawl.completed') {
       let documents = event.data ?? [];
       if (!documents.length) documents = (await getCrawl(event.id)).data ?? [];
+      await recordAuditPages(
+        documents
+          .map((document) => auditPageEvidence(document))
+          .filter((page): page is NonNullable<typeof page> => page !== null)
+          .map((page) => ({ leadId, ...page })),
+      );
       for (const document of documents) {
         const url =
           document.metadata?.sourceURL ?? document.metadata?.url ?? '';

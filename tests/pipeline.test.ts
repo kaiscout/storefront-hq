@@ -228,10 +228,12 @@ void test('source-platform allowlist requires a replyable post URL', () => {
 void test('proposal uses evidence without fabricated uplift claims', () => {
   const proposal = buildProposal({
     companyName: 'Example Store',
+    contactName: 'Morgan',
     sourceTitle: 'Need Shopify QA',
     proofSummary: '/sale returns 404 on mobile.',
   });
   assert.match(proposal.body, /\/sale returns 404 on mobile/);
   assert.doesNotMatch(proposal.body, /revenue uplift|guaranteed conversion/i);
   assert.match(proposal.body, /\[OPERATOR NAME\]/);
+  assert.match(proposal.body, /^Hello Morgan,/);
 });

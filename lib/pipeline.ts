@@ -505,6 +505,7 @@ export function assessBuyerIntent(input: {
 
 export function buildProposal(input: {
   companyName: string;
+  contactName?: string | null;
   sourceTitle: string;
   proofSummary?: string | null;
   storeUrl?: string | null;
@@ -518,8 +519,9 @@ export function buildProposal(input: {
     ? `\n\nIf a short fit check is useful, here is my ${offer.handoffMinutes}-minute calendar: ${input.calUrl}`
     : '';
   const operatorName = input.operatorName?.trim() || '[OPERATOR NAME]';
+  const greeting = input.contactName?.trim() || `${input.companyName} team`;
   return {
     subject: `${offer.deliveryHours}-hour storefront QA for ${input.companyName}`,
-    body: `Hello ${input.companyName} team,\n\nI’m responding to your request, “${input.sourceTitle}.” ${proof}\n\nI offer the fixed £${offer.priceGbp} ${offer.productName}: up to ${offer.pageLimit} public pages, ${offer.selectedFindings} reproducible findings with screenshots and fix-ready recommendations, plus ${offer.watchDays} days of checks on ${offer.watchRouteLimit} critical routes. Delivery is within ${offer.deliveryHours} hours. If I cannot produce at least ${offer.minimumFindings} actionable issues, I refund the fee.\n\nThere is no backend access, retainer, or implementation upsell.${booking}\n\nBest,\n${operatorName}`,
+    body: `Hello ${greeting},\n\nI’m responding to your request, “${input.sourceTitle}.” ${proof}\n\nI offer the fixed £${offer.priceGbp} ${offer.productName}: up to ${offer.pageLimit} public pages, ${offer.selectedFindings} reproducible findings with screenshots and fix-ready recommendations, plus ${offer.watchDays} days of checks on ${offer.watchRouteLimit} critical routes. Delivery is within ${offer.deliveryHours} hours. If the delivered pack contains fewer than ${offer.minimumFindings} reproducible, actionable issues within the agreed public scope, you may request a full refund within seven days.\n\nThere is no backend access, retainer, or implementation upsell.${booking}\n\nBest,\n${operatorName}`,
   };
 }

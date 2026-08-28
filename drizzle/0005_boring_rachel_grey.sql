@@ -1,0 +1,1 @@
+ALTER TABLE `webhook_events` ADD `result_json` text;

@@ -31,8 +31,39 @@ export type ScrapeDocument = {
     title?: string;
     description?: string;
     statusCode?: number;
+    cachedAt?: string;
   };
 };
+
+export type AuditPageEvidence = {
+  url: string;
+  statusCode?: number;
+  pageTitle?: string;
+  screenshotUrl?: string;
+  capturedAt?: string;
+};
+
+export function auditPageEvidence(
+  document: ScrapeDocument,
+): AuditPageEvidence | null {
+  const url =
+    document.metadata?.sourceURL?.trim() ??
+    document.metadata?.url?.trim() ??
+    '';
+  if (!url) return null;
+  const pageTitle = document.metadata?.title?.trim() || undefined;
+  const screenshotUrl = document.screenshot?.trim() || undefined;
+  const cachedAt = document.metadata?.cachedAt?.trim();
+  const capturedAt =
+    cachedAt && !Number.isNaN(Date.parse(cachedAt)) ? cachedAt : undefined;
+  return {
+    url,
+    statusCode: document.metadata?.statusCode,
+    pageTitle,
+    screenshotUrl,
+    capturedAt,
+  };
+}
 
 export type StorefrontFinding = {
   url: string;
@@ -76,20 +107,41 @@ async function firecrawlFetch<T>(path: string, body: unknown): Promise<T> {
 export async function discoverExplicitIntent() {
   const query =
     '(Shopify OR ecommerce OR storefront) ("looking for" OR "seeking" OR "need help" OR "can anyone help" OR "proposals") (QA OR testing OR audit OR "broken links" OR CRO OR BFCM OR "Black Friday" OR "store speed") -career -careers -salary -"job description" -"how to"';
-  const response = await firecrawlFetch<{
+  type SearchResponse = {
     success: boolean;
     data?: { web?: SearchResult[] };
-  }>('/search', {
-    query,
-    limit: 25,
-    sources: ['web'],
-    tbs: 'qdr:w,sbd:1',
-    country: 'UK',
-    ignoreInvalidURLs: true,
-    scrapeOptions: { formats: [{ type: 'markdown' }], onlyMainContent: true },
-  });
+  };
+  const searches = await Promise.allSettled(
+    ['US', 'UK'].map((country) =>
+      firecrawlFetch<SearchResponse>('/search', {
+        query,
+        limit: 25,
+        sources: ['web'],
+        tbs: 'qdr:w,sbd:1',
+        country,
+        ignoreInvalidURLs: true,
+        scrapeOptions: {
+          formats: [{ type: 'markdown' }],
+          onlyMainContent: true,
+        },
+      }),
+    ),
+  );
+  const successfulSearches = searches.filter(
+    (result): result is PromiseFulfilledResult<SearchResponse> =>
+      result.status === 'fulfilled',
+  );
+  if (!successfulSearches.length) {
+    const failure = searches.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    throw failure?.reason instanceof Error
+      ? failure.reason
+      : new Error('Firecrawl discovery failed in every configured market');
+  }
 
-  return (response.data?.web ?? [])
+  const opportunities = successfulSearches
+    .flatMap((result) => result.value.data?.web ?? [])
     .map((result) => {
       const url =
         result.url ?? result.metadata?.sourceURL ?? result.metadata?.url ?? '';
@@ -123,7 +175,19 @@ export async function discoverExplicitIntent() {
         recencyRank: assessment.recencyRank,
       };
     })
-    .filter((result): result is NonNullable<typeof result> => result !== null)
+    .filter((result): result is NonNullable<typeof result> => result !== null);
+  const unique = new Map<string, (typeof opportunities)[number]>();
+  for (const opportunity of opportunities) {
+    const existing = unique.get(opportunity.url);
+    if (
+      !existing ||
+      opportunity.recencyRank > existing.recencyRank ||
+      (opportunity.recencyRank === existing.recencyRank &&
+        opportunity.score > existing.score)
+    )
+      unique.set(opportunity.url, opportunity);
+  }
+  return Array.from(unique.values())
     .sort(
       (left, right) =>
         right.recencyRank - left.recencyRank ||

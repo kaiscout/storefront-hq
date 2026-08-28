@@ -426,42 +426,40 @@ function runPrivacyCleanup() {
 }
 
 function installTriggers() {
-  var managed = [
-    'createProposalDrafts',
-    'syncInboundReplies',
-    'discoverBuyerIntent',
-    'runRegressionWatch',
-    'runSlaWatch',
-    'runSourceWatch',
-    'runPrivacyCleanup',
-  ];
+  var installed = {};
   ScriptApp.getProjectTriggers().forEach(function (trigger) {
-    if (managed.indexOf(trigger.getHandlerFunction()) !== -1)
-      ScriptApp.deleteTrigger(trigger);
+    installed[trigger.getHandlerFunction()] = true;
   });
-  ScriptApp.newTrigger('syncInboundReplies')
-    .timeBased()
-    .everyMinutes(5)
-    .create();
-  ScriptApp.newTrigger('createProposalDrafts')
-    .timeBased()
-    .everyMinutes(15)
-    .create();
-  ScriptApp.newTrigger('discoverBuyerIntent')
-    .timeBased()
-    .atHour(7)
-    .everyDays(1)
-    .create();
-  ScriptApp.newTrigger('runRegressionWatch')
-    .timeBased()
-    .atHour(8)
-    .everyDays(1)
-    .create();
-  ScriptApp.newTrigger('runSlaWatch').timeBased().everyHours(1).create();
-  ScriptApp.newTrigger('runSourceWatch').timeBased().everyHours(1).create();
-  ScriptApp.newTrigger('runPrivacyCleanup')
-    .timeBased()
-    .atHour(3)
-    .everyDays(1)
-    .create();
+  if (!installed.syncInboundReplies)
+    ScriptApp.newTrigger('syncInboundReplies')
+      .timeBased()
+      .everyMinutes(5)
+      .create();
+  if (!installed.createProposalDrafts)
+    ScriptApp.newTrigger('createProposalDrafts')
+      .timeBased()
+      .everyMinutes(15)
+      .create();
+  if (!installed.discoverBuyerIntent)
+    ScriptApp.newTrigger('discoverBuyerIntent')
+      .timeBased()
+      .atHour(7)
+      .everyDays(1)
+      .create();
+  if (!installed.runRegressionWatch)
+    ScriptApp.newTrigger('runRegressionWatch')
+      .timeBased()
+      .atHour(8)
+      .everyDays(1)
+      .create();
+  if (!installed.runSlaWatch)
+    ScriptApp.newTrigger('runSlaWatch').timeBased().everyHours(1).create();
+  if (!installed.runSourceWatch)
+    ScriptApp.newTrigger('runSourceWatch').timeBased().everyHours(1).create();
+  if (!installed.runPrivacyCleanup)
+    ScriptApp.newTrigger('runPrivacyCleanup')
+      .timeBased()
+      .atHour(3)
+      .everyDays(1)
+      .create();
 }

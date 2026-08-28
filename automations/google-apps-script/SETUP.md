@@ -24,7 +24,7 @@ send or permanent-delete call.
    - `API_BASE`: the deployed HTTPS Site origin, without a trailing slash;
    - `AUTOMATION_SECRET`: the same high-entropy value configured on the Site;
    - `BUSINESS_EMAIL`: the dedicated inbox address.
-4. Run `installTriggers()` once and approve only the requested Gmail and external-request scopes.
+4. Run `installTriggers()` once and approve only the requested Gmail and external-request scopes. The installer is idempotent: re-running it adds only missing jobs and preserves existing managed triggers.
 5. Run `createProposalDrafts()` manually once. Confirm that a draft is created but not sent.
 6. Run `syncInboundReplies()` with a labelled test thread and confirm the control room changes.
 

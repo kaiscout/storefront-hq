@@ -5,6 +5,35 @@ function operatorOwnerEmails() {
     .filter((email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
 }
 
+function isLiveStripeCheckoutUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      url.port ||
+      url.pathname.includes('%') ||
+      url.pathname.includes('\\')
+    )
+      return false;
+
+    if (url.hostname === 'buy.stripe.com') {
+      const paymentLink = /^\/([A-Za-z0-9_-]+)\/?$/.exec(url.pathname);
+      return Boolean(
+        paymentLink && !paymentLink[1].toLowerCase().startsWith('test_'),
+      );
+    }
+
+    if (url.hostname === 'checkout.stripe.com')
+      return /^\/c\/pay\/cs_live_[A-Za-z0-9_-]+\/?$/.test(url.pathname);
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function publicConfig() {
   const operatorName = process.env.PUBLIC_OPERATOR_NAME?.trim() ?? '';
   const contactEmail = process.env.PUBLIC_CONTACT_EMAIL?.trim() ?? '';
@@ -21,7 +50,7 @@ export function publicConfig() {
     process.env.AUTOMATION_SECRET?.trim() &&
     calUrl.startsWith('https://') &&
     process.env.CAL_WEBHOOK_SECRET?.trim() &&
-    checkoutUrl.startsWith('https://') &&
+    isLiveStripeCheckoutUrl(checkoutUrl) &&
     process.env.STRIPE_WEBHOOK_SECRET?.trim() &&
     siteUrl.startsWith('https://'),
   );

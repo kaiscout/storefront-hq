@@ -13,7 +13,7 @@ void test('public intake requires identity, private access, and every integratio
     AUTOMATION_SECRET: 'test-automation-secret',
     CAL_BOOKING_URL: 'https://cal.example.test/fit',
     CAL_WEBHOOK_SECRET: 'test-cal-secret',
-    CHECKOUT_URL: 'https://checkout.example.test/pay',
+    CHECKOUT_URL: 'https://buy.stripe.com/14k8wP0example',
     STRIPE_WEBHOOK_SECRET: 'test-stripe-secret',
     PUBLIC_SITE_URL: 'https://site.example.test',
   };
@@ -28,6 +28,34 @@ void test('public intake requires identity, private access, and every integratio
 
     Object.assign(process.env, values);
     assert.equal(publicConfig().launchReady, true);
+
+    for (const checkoutUrl of [
+      'https://buy.stripe.com/test_eVa5nPg1j1wmfXq5kr',
+      'https://checkout.stripe.com/c/pay/cs_test_example',
+      'https://buy.stripe.com/%74est_eVa5nPg1j1wmfXq5kr',
+      'https://buy.stripe.com/%2574est_eVa5nPg1j1wmfXq5kr',
+      'https://checkout.stripe.com/c/pay/cs_%74est_example',
+    ]) {
+      process.env.CHECKOUT_URL = checkoutUrl;
+      assert.equal(
+        publicConfig().launchReady,
+        false,
+        `${checkoutUrl} must not open public intake`,
+      );
+    }
+
+    for (const checkoutUrl of [
+      values.CHECKOUT_URL,
+      'https://checkout.stripe.com/c/pay/cs_live_example',
+    ]) {
+      process.env.CHECKOUT_URL = checkoutUrl;
+      assert.equal(
+        publicConfig().launchReady,
+        true,
+        `${checkoutUrl} should remain launch-ready`,
+      );
+    }
+    process.env.CHECKOUT_URL = values.CHECKOUT_URL;
 
     process.env.OPS_OWNER_EMAIL = ',';
     assert.equal(publicConfig().launchReady, false);

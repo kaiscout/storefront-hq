@@ -10,6 +10,12 @@ Gmail is used only for:
 
 The script never calls `send()`.
 
+The project manifest pins the Gmail permission to `gmail.modify` instead of
+the broader `mail.google.com` scope. Google describes `gmail.modify` as able to
+read, compose and send mail; this script uses it only to read labelled threads,
+create unsent drafts and apply the `rt10-watch` label. It contains no Gmail
+send or permanent-delete call.
+
 ## Setup
 
 1. In the dedicated Google account, open Apps Script and create a blank project.

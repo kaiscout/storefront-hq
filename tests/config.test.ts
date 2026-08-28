@@ -35,6 +35,12 @@ void test('public intake requires identity, private access, and every integratio
       'https://buy.stripe.com/%74est_eVa5nPg1j1wmfXq5kr',
       'https://buy.stripe.com/%2574est_eVa5nPg1j1wmfXq5kr',
       'https://checkout.stripe.com/c/pay/cs_%74est_example',
+      'https://buy.stripe.com/test_eVa5nPg1j1wmfXq5kr\\..\\14k8wP0example',
+      'https://buy.stripe.com/test_eVa5nPg1j1wmfXq5kr/../14k8wP0example',
+      'https://buy.stripe.com/test_eVa5nPg1j1wmfXq5kr/%2e%2e/14k8wP0example',
+      'https://buy.stripe.com/14k8wP0ex\r\n\tample',
+      'https://buy.stripe.com/14k8wP0example?prefilled_email=buyer%40example.com',
+      'https://buy.stripe.com/14k8wP0example#checkout',
     ]) {
       process.env.CHECKOUT_URL = checkoutUrl;
       assert.equal(
@@ -46,9 +52,13 @@ void test('public intake requires identity, private access, and every integratio
       assert.equal(integrationState().payments, false);
     }
 
-    for (const checkoutUrl of [
-      values.CHECKOUT_URL,
-      'https://checkout.stripe.com/c/pay/cs_live_example',
+    for (const [checkoutUrl, canonicalUrl] of [
+      [values.CHECKOUT_URL, values.CHECKOUT_URL],
+      [
+        'https://checkout.stripe.com/c/pay/cs_live_example',
+        'https://checkout.stripe.com/c/pay/cs_live_example',
+      ],
+      ['HTTPS://BUY.STRIPE.COM:443/14k8wP0example', values.CHECKOUT_URL],
     ]) {
       process.env.CHECKOUT_URL = checkoutUrl;
       assert.equal(
@@ -56,7 +66,8 @@ void test('public intake requires identity, private access, and every integratio
         true,
         `${checkoutUrl} should remain launch-ready`,
       );
-      assert.equal(publicConfig().checkoutUrl, checkoutUrl);
+      assert.equal(publicConfig().checkoutUrl, canonicalUrl);
+      assert.equal(publicConfig().checkoutUrl, new URL(checkoutUrl).href);
       assert.equal(integrationState().payments, true);
     }
     process.env.CHECKOUT_URL = values.CHECKOUT_URL;

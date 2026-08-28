@@ -5,9 +5,30 @@ function operatorOwnerEmails() {
     .filter((email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
 }
 
-function isLiveStripeCheckoutUrl(value: string) {
+function hasUnsafeCheckoutUrlCharacter(value: string) {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0;
+    if (
+      codePoint <= 0x1f ||
+      (codePoint >= 0x7f && codePoint <= 0x9f) ||
+      codePoint === 0x2028 ||
+      codePoint === 0x2029 ||
+      '\\%?#'.includes(character)
+    )
+      return true;
+  }
+  return false;
+}
+
+function liveStripeCheckoutUrl(value: string) {
+  if (
+    hasUnsafeCheckoutUrlCharacter(value) ||
+    /(?:^|\/)\.{1,2}(?:\/|$)/.test(value)
+  )
+    return '';
+
   try {
-    const url = new URL(value);
+    const url = new URL(value.trim());
     if (
       url.protocol !== 'https:' ||
       url.username ||
@@ -16,21 +37,24 @@ function isLiveStripeCheckoutUrl(value: string) {
       url.pathname.includes('%') ||
       url.pathname.includes('\\')
     )
-      return false;
+      return '';
 
     if (url.hostname === 'buy.stripe.com') {
       const paymentLink = /^\/([A-Za-z0-9_-]+)\/?$/.exec(url.pathname);
-      return Boolean(
-        paymentLink && !paymentLink[1].toLowerCase().startsWith('test_'),
-      );
+      return paymentLink && !paymentLink[1].toLowerCase().startsWith('test_')
+        ? url.href
+        : '';
     }
 
-    if (url.hostname === 'checkout.stripe.com')
-      return /^\/c\/pay\/cs_live_[A-Za-z0-9_-]+\/?$/.test(url.pathname);
+    if (
+      url.hostname === 'checkout.stripe.com' &&
+      /^\/c\/pay\/cs_live_[A-Za-z0-9_-]+\/?$/.test(url.pathname)
+    )
+      return url.href;
 
-    return false;
+    return '';
   } catch {
-    return false;
+    return '';
   }
 }
 
@@ -38,10 +62,8 @@ export function publicConfig() {
   const operatorName = process.env.PUBLIC_OPERATOR_NAME?.trim() ?? '';
   const contactEmail = process.env.PUBLIC_CONTACT_EMAIL?.trim() ?? '';
   const calUrl = process.env.CAL_BOOKING_URL?.trim() ?? '';
-  const configuredCheckoutUrl = process.env.CHECKOUT_URL?.trim() ?? '';
-  const checkoutUrl = isLiveStripeCheckoutUrl(configuredCheckoutUrl)
-    ? configuredCheckoutUrl
-    : '';
+  const configuredCheckoutUrl = process.env.CHECKOUT_URL ?? '';
+  const checkoutUrl = liveStripeCheckoutUrl(configuredCheckoutUrl);
   const siteUrl = process.env.PUBLIC_SITE_URL?.replace(/\/$/, '') ?? '';
   const operatorOwners = operatorOwnerEmails();
   const launchReady = Boolean(

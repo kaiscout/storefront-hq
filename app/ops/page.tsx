@@ -14,6 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { integrationState, publicConfig } from '@/lib/config';
 import { listLeads, listWatchRoutes, pipelineCounts } from '@/lib/database';
+import { offer } from '@/lib/offer';
+import { deliverySlaSummary } from '@/lib/operations';
 import { currentOperator } from '@/lib/operator-auth';
 import { buildProposal, type PipelineStatus } from '@/lib/pipeline';
 
@@ -89,7 +91,7 @@ export default async function OpsPage() {
     Number(counts.paid ?? 0) +
     Number(counts.fulfilling ?? 0) +
     Number(counts.delivered ?? 0);
-  const gross = paid * 895;
+  const gross = paid * offer.priceGbp;
 
   return (
     <main className="min-h-screen bg-[#ece8df] text-[#10261f]">
@@ -161,7 +163,7 @@ export default async function OpsPage() {
               <p className="mt-2 text-xs font-semibold">
                 {paid
                   ? 'One-sale target cleared'
-                  : '1 × £895 sale is the sprint target'}
+                  : `1 × £${offer.priceGbp} sale is the sprint target`}
               </p>
             </CardContent>
           </Card>
@@ -219,6 +221,11 @@ export default async function OpsPage() {
                           : process.env.CAL_BOOKING_URL,
                       operatorName: process.env.PUBLIC_OPERATOR_NAME,
                     });
+                    const deliverySla =
+                      lead.paid_at &&
+                      ['paid', 'fulfilling'].includes(lead.status)
+                        ? deliverySlaSummary(lead.paid_at)
+                        : null;
                     return (
                       <tr key={lead.id} className="align-top hover:bg-white/50">
                         <td className="max-w-[330px] px-5 py-4">
@@ -277,6 +284,22 @@ export default async function OpsPage() {
                           >
                             {lead.status.replaceAll('_', ' ')}
                           </Badge>
+                          {deliverySla ? (
+                            <p
+                              className={`mt-2 max-w-52 text-xs font-bold leading-5 ${
+                                deliverySla.state === 'overdue'
+                                  ? 'text-red-700'
+                                  : deliverySla.state === 'approaching'
+                                    ? 'text-amber-700'
+                                    : 'text-[#477a5b]'
+                              }`}
+                            >
+                              Delivery {deliverySla.state.replace('_', ' ')} ·{' '}
+                              {deliverySla.hoursRemaining > 0
+                                ? `${deliverySla.hoursRemaining}h left`
+                                : `${Math.abs(deliverySla.hoursRemaining)}h late`}
+                            </p>
+                          ) : null}
                           <p className="mt-2 max-w-44 text-xs leading-5 text-muted-foreground">
                             {lead.next_action}
                           </p>

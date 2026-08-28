@@ -17,16 +17,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 import { publicConfig } from '@/lib/config';
+import { offer } from '@/lib/offer';
+import { cn } from '@/lib/utils';
 
 const scope = [
-  'Up to 250 public product, collection and policy pages',
-  '12 confirmed findings with exact URLs and reproduction steps',
+  `Up to ${offer.pageLimit} public product, collection and policy pages`,
+  `${offer.selectedFindings} confirmed findings with exact URLs and reproduction steps`,
   'Mobile screenshots, severity and fix-ready recommendations',
   'Redirect CSV and copy-ready corrections for priority issues',
-  '20-minute findings handoff',
-  'Daily checks on 10 critical pages for 30 days',
+  `${offer.handoffMinutes}-minute findings handoff`,
+  `Daily checks on ${offer.watchRouteLimit} critical pages for ${offer.watchDays} days`,
 ];
 
 const findings = [
@@ -59,13 +60,13 @@ export default function Home() {
           <a
             href="#top"
             className="flex items-center gap-3"
-            aria-label="Storefront QA home"
+            aria-label={`${offer.brandName} home`}
           >
             <span className="grid size-9 place-items-center rounded-full bg-primary text-xs font-black text-primary-foreground">
-              48
+              {offer.deliveryHours}
             </span>
             <span className="text-sm font-bold tracking-[-0.02em] sm:text-base">
-              Storefront QA Sprint
+              {offer.brandName}
             </span>
           </a>
           <nav className="flex items-center gap-2" aria-label="Main navigation">
@@ -99,16 +100,17 @@ export default function Home() {
               variant="outline"
               className="mb-6 h-auto rounded-full border-foreground/20 bg-background px-3 py-1 font-mono text-[11px] uppercase tracking-[0.12em]"
             >
-              Shopify · Peak-season readiness · 48 hours
+              {offer.productName} · Shopify · Peak-season readiness ·{' '}
+              {offer.deliveryHours} hours
             </Badge>
             <h1 className="max-w-4xl text-balance text-[clamp(3rem,7vw,6.5rem)] font-black leading-[0.88] tracking-[-0.065em]">
               Find the broken buying paths before your customers do.
             </h1>
             <p className="mt-7 max-w-2xl text-pretty text-lg leading-8 text-muted-foreground sm:text-xl">
-              A fixed-scope Shopify storefront QA sprint with reproducible
-              evidence, fix-ready recommendations, and 30 days of regression
-              watch. No backend access. No retainer. No vague conversion
-              theatre.
+              The {offer.productName} is a fixed-scope Shopify storefront QA
+              sprint with reproducible evidence, fix-ready recommendations, and{' '}
+              {offer.watchDays} days of regression watch. No backend access. No
+              retainer. No vague conversion theatre.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
@@ -118,11 +120,13 @@ export default function Home() {
                   'h-12 rounded-full bg-[#ff6b35] px-6 text-base font-bold text-white shadow-[0_8px_0_#10261f] hover:bg-[#e95725]',
                 )}
               >
-                Start the £895 sprint <ArrowRight data-icon="inline-end" />
+                Start the £{offer.priceGbp} sprint{' '}
+                <ArrowRight data-icon="inline-end" />
               </Link>
               <span className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
                 <ShieldCheck className="size-4 text-[#477a5b]" />
-                Fewer than 8 actionable issues? Full refund.
+                Fewer than {offer.minimumFindings} actionable issues? Full
+                refund.
               </span>
             </div>
           </div>
@@ -232,10 +236,11 @@ export default function Home() {
           <div>
             <div className="mb-4 flex flex-wrap gap-4 font-mono text-[11px] uppercase tracking-wider">
               <span className="flex items-center gap-2">
-                <Clock3 className="size-4" /> 48-hour delivery
+                <Clock3 className="size-4" /> {offer.deliveryHours}-hour
+                delivery
               </span>
               <span className="flex items-center gap-2">
-                <CircleCheck className="size-4" /> £895 one-off
+                <CircleCheck className="size-4" /> £{offer.priceGbp} one-off
               </span>
             </div>
             <h2 className="max-w-3xl text-4xl font-black leading-[0.95] tracking-[-0.045em] sm:text-6xl">
@@ -258,6 +263,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-7 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
           <div>
             <p>
+              {offer.brandName} ·{' '}
               {config.operatorName || 'Independent public-storefront QA'} · Not
               affiliated with or endorsed by Shopify.
             </p>

@@ -1,10 +1,12 @@
-# Seven-day revenue sprint
+# Storefront HQ seven-day revenue sprint
 
-The target is one **£895** sale. That clears US$1,000 at ordinary recent exchange rates, but neither the exchange rate nor a sale is guaranteed. A realistic downside is £0.
+The target is one **£895 Storefront QA Sprint** sale. That clears US$1,000 at ordinary recent exchange rates, but neither the exchange rate nor a sale is guaranteed. A realistic downside is £0.
 
-## Offer
+## Offer: Storefront QA Sprint
 
-**48-Hour Shopify Peak-Season Storefront QA + 30-Day Regression Watch**
+The canonical offer values live in [`lib/offer.ts`](./lib/offer.ts). Keep public copy, proposals and fulfilment aligned with those constants.
+
+**Storefront HQ: 48-Hour Shopify Peak-Season Storefront QA + 30-Day Regression Watch**
 
 - Up to 250 public pages
 - 12 selected, reproducible findings

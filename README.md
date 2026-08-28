@@ -1,6 +1,8 @@
-# Storefront QA Sprint
+# Storefront HQ
 
-A public offer and private operations system for one fixed-price product: a **£895, 48-hour Shopify storefront QA sprint plus 30 days of regression watch**.
+Storefront HQ sells one fixed-price product: the **Storefront QA Sprint**, a **£895, 48-hour Shopify storefront QA sprint plus 30 days of regression watch**.
+
+The canonical brand, product, price, and scope values live in [`lib/offer.ts`](./lib/offer.ts). Public copy and operating documentation must mirror those constants: up to 250 public pages, 12 selected findings, an eight-finding evidence guarantee, a 20-minute handoff, and daily observation of 10 agreed routes for 30 days.
 
 The acquisition model is intent-only. Firecrawl locates recent public requests for Shopify QA/CRO/readiness help. An operator verifies the request and its channel rules, confirms one public-storefront issue, and approves a tailored proposal. Gmail creates a draft but never auto-sends. Replies, Cal bookings, payments and Firecrawl audit events advance a durable D1 pipeline.
 

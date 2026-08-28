@@ -1,4 +1,5 @@
 import { assessBuyerIntent } from './pipeline.ts';
+import { offer } from './offer.ts';
 import { sha256Hex } from './security.ts';
 
 const API_BASE = 'https://api.firecrawl.dev/v2';
@@ -32,6 +33,27 @@ export type ScrapeDocument = {
     statusCode?: number;
   };
 };
+
+export type StorefrontFinding = {
+  url: string;
+  referringUrl?: string;
+  title: string;
+  severity: 'critical' | 'high' | 'medium';
+  category: string;
+  evidence: string;
+  recommendation: string;
+};
+
+export type StorefrontPreflight = {
+  attemptedRoutes: string[];
+  pages: Array<{ requestedUrl: string; document: ScrapeDocument }>;
+  failures: Array<{ url: string; error: string }>;
+};
+
+export function isSuccessfulStorefrontDocument(document: ScrapeDocument) {
+  const statusCode = document.metadata?.statusCode;
+  return statusCode === undefined || (statusCode >= 200 && statusCode < 400);
+}
 
 async function firecrawlFetch<T>(path: string, body: unknown): Promise<T> {
   const apiKey = process.env.FIRECRAWL_API_KEY;
@@ -130,6 +152,124 @@ export async function scrapeStorefrontPreview(url: string) {
   return response.data;
 }
 
+const blockedPreflightPaths =
+  /(?:^|\/)(?:admin|account|cart|checkout|checkouts|orders|password)(?:\/|$)/i;
+const nonDocumentExtensions =
+  /\.(?:avif|bmp|css|csv|gif|ico|jpe?g|js|json|mp3|mp4|pdf|png|svg|txt|webm|webp|woff2?|xml|zip)$/i;
+
+function canonicalSameOriginRoute(value: string, storefrontUrl: URL) {
+  try {
+    const route = new URL(value, storefrontUrl);
+    if (
+      route.protocol !== 'https:' ||
+      route.origin !== storefrontUrl.origin ||
+      route.username ||
+      route.password ||
+      blockedPreflightPaths.test(route.pathname) ||
+      nonDocumentExtensions.test(route.pathname)
+    )
+      return null;
+    route.hash = '';
+    route.search = '';
+    return route.href;
+  } catch {
+    return null;
+  }
+}
+
+function preflightRoutePriority(value: string) {
+  const pathname = new URL(value).pathname;
+  if (/^\/products?\//i.test(pathname)) return 0;
+  if (/^\/collections?\//i.test(pathname)) return 1;
+  if (/^\/pages?\//i.test(pathname)) return 2;
+  if (/^\/policies?\//i.test(pathname)) return 3;
+  return 4;
+}
+
+export function selectStorefrontPreflightRoutes(
+  storeUrl: string,
+  seedDocument: ScrapeDocument,
+  limit = 5,
+) {
+  const storefrontUrl = new URL(storeUrl);
+  storefrontUrl.hash = '';
+  storefrontUrl.search = '';
+  const maximum = Math.max(1, Math.min(5, Math.floor(limit)));
+  const candidates = new Set<string>();
+  for (const link of seedDocument.links ?? []) {
+    const route = canonicalSameOriginRoute(link, storefrontUrl);
+    if (route && route !== storefrontUrl.href) candidates.add(route);
+  }
+  return [
+    storefrontUrl.href,
+    ...Array.from(candidates).sort(
+      (left, right) =>
+        preflightRoutePriority(left) - preflightRoutePriority(right) ||
+        left.localeCompare(right),
+    ),
+  ].slice(0, maximum);
+}
+
+export async function runStorefrontPreflight(
+  storeUrl: string,
+  options?: {
+    limit?: number;
+    scrape?: (url: string) => Promise<ScrapeDocument>;
+  },
+): Promise<StorefrontPreflight> {
+  const scrape = options?.scrape ?? scrapeStorefrontPreview;
+  const storefrontUrl = new URL(storeUrl);
+  storefrontUrl.hash = '';
+  storefrontUrl.search = '';
+  const attemptedRoutes = [storefrontUrl.href];
+  let seedDocument: ScrapeDocument;
+  try {
+    seedDocument = await scrape(storefrontUrl.href);
+  } catch (error) {
+    return {
+      attemptedRoutes,
+      pages: [],
+      failures: [
+        {
+          url: storefrontUrl.href,
+          error:
+            error instanceof Error ? error.message : 'Unknown scrape error',
+        },
+      ],
+    };
+  }
+
+  const routes = selectStorefrontPreflightRoutes(
+    storefrontUrl.href,
+    seedDocument,
+    options?.limit,
+  );
+  attemptedRoutes.splice(0, attemptedRoutes.length, ...routes);
+  const pages: StorefrontPreflight['pages'] = [
+    { requestedUrl: storefrontUrl.href, document: seedDocument },
+  ];
+  const failures: StorefrontPreflight['failures'] = [];
+  const results = await Promise.allSettled(
+    routes.slice(1).map(async (requestedUrl) => ({
+      requestedUrl,
+      document: await scrape(requestedUrl),
+    })),
+  );
+  results.forEach((result, index) => {
+    const url = routes[index + 1];
+    if (result.status === 'fulfilled') pages.push(result.value);
+    else
+      failures.push({
+        url,
+        error:
+          result.reason instanceof Error
+            ? result.reason.message
+            : 'Unknown scrape error',
+      });
+  });
+  return { attemptedRoutes, pages, failures };
+}
+
 export async function startFullAudit(input: {
   leadId: string;
   storeUrl: string;
@@ -139,7 +279,7 @@ export async function startFullAudit(input: {
     '/crawl',
     {
       url: input.storeUrl,
-      limit: 250,
+      limit: offer.pageLimit,
       sitemap: 'include',
       ignoreQueryParameters: true,
       crawlEntireDomain: true,
@@ -223,6 +363,17 @@ export function deriveDeterministicFindings(document: ScrapeDocument) {
     });
   }
 
+  if ((!statusCode || statusCode < 400) && !document.metadata?.title?.trim()) {
+    findings.push({
+      title: 'No public page title was captured',
+      severity: 'medium',
+      category: 'page-title',
+      evidence: `${url} did not expose a non-empty page title during the public mobile check.`,
+      recommendation:
+        'Verify the rendered HTML title element and add a concise, page-specific title if it is missing.',
+    });
+  }
+
   if (
     /\b(sold out|out of stock|unavailable)\b/i.test(markdown) &&
     /\b(shop now|buy now|add to cart)\b/i.test(markdown)
@@ -237,5 +388,77 @@ export function deriveDeterministicFindings(document: ScrapeDocument) {
     });
   }
 
+  return findings;
+}
+
+function normalizedDocumentUrl(document: ScrapeDocument) {
+  const value = document.metadata?.sourceURL ?? document.metadata?.url;
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    url.hash = '';
+    url.search = '';
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+export function deriveCorpusFindings(documents: ScrapeDocument[]) {
+  const findings: StorefrontFinding[] = [];
+  const documentsByUrl = new Map<string, ScrapeDocument>();
+  const urlsByTitle = new Map<string, { title: string; urls: Set<string> }>();
+
+  for (const document of documents) {
+    const url = normalizedDocumentUrl(document);
+    if (!url) continue;
+    documentsByUrl.set(url, document);
+    const title = document.metadata?.title?.replace(/\s+/g, ' ').trim();
+    if (!title || (document.metadata?.statusCode ?? 200) >= 400) continue;
+    const key = title.toLocaleLowerCase('en-GB');
+    const group = urlsByTitle.get(key) ?? { title, urls: new Set<string>() };
+    group.urls.add(url);
+    urlsByTitle.set(key, group);
+  }
+
+  for (const group of urlsByTitle.values()) {
+    const urls = Array.from(group.urls).sort();
+    if (urls.length < 2) continue;
+    findings.push({
+      url: urls[0],
+      title: 'Duplicate public page title across crawled routes',
+      severity: 'medium',
+      category: 'duplicate-title',
+      evidence: `The exact title "${group.title.slice(0, 160)}" was captured on ${urls.length} public routes: ${urls.slice(0, 5).join(', ')}.`,
+      recommendation:
+        'Review these routes and give each distinct page a concise, page-specific title.',
+    });
+  }
+
+  const recordedLinks = new Set<string>();
+  for (const [referringUrl, document] of documentsByUrl) {
+    const origin = new URL(referringUrl);
+    for (const link of document.links ?? []) {
+      const destination = canonicalSameOriginRoute(link, origin);
+      if (!destination) continue;
+      const destinationDocument = documentsByUrl.get(destination);
+      const statusCode = destinationDocument?.metadata?.statusCode;
+      if (!statusCode || statusCode < 400) continue;
+      const key = `${referringUrl}\n${destination}`;
+      if (recordedLinks.has(key)) continue;
+      recordedLinks.add(key);
+      findings.push({
+        url: destination,
+        referringUrl,
+        title: `Crawled internal destination returns HTTP ${statusCode}`,
+        severity: statusCode >= 500 ? 'critical' : 'high',
+        category: 'broken-internal-destination',
+        evidence: `${referringUrl} links to ${destination}, which returned HTTP ${statusCode} in the same public crawl.`,
+        recommendation:
+          'Repair the destination or update the internal link to a verified live route.',
+      });
+    }
+  }
   return findings;
 }

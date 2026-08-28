@@ -3,7 +3,7 @@
  *
  * This script intentionally NEVER sends mail. It creates reviewable drafts,
  * labels those threads, syncs replies from only those labelled threads, and
- * invokes the Firecrawl discovery endpoint once per day.
+ * invokes the protected discovery and operations-watch endpoints on schedule.
  */
 
 var WATCH_LABEL = 'rt10-watch';
@@ -71,7 +71,8 @@ function gmailApi_(path, method, body) {
     (verb === 'post' && /^\/threads\/[^/]+\/modify$/.test(pathname)) ||
     (verb === 'get' &&
       /^\/messages\/[^/]+\/attachments\/[^/]+$/.test(pathname));
-  if (!allowed) throw new Error('Blocked Gmail API operation: ' + verb + ' ' + pathname);
+  if (!allowed)
+    throw new Error('Blocked Gmail API operation: ' + verb + ' ' + pathname);
   var options = {
     method: verb,
     headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
@@ -109,7 +110,9 @@ function base64UrlDecode_(value) {
 }
 
 function safeHeader_(value) {
-  return String(value || '').replace(/[\r\n]+/g, ' ').trim();
+  return String(value || '')
+    .replace(/[\r\n]+/g, ' ')
+    .trim();
 }
 
 function getHeader_(message, name) {
@@ -154,7 +157,8 @@ function partText_(messageId, part) {
 
 function findPartBody_(messageId, part, mimeType) {
   if (!part) return '';
-  if (part.mimeType === mimeType && !part.filename) return partText_(messageId, part);
+  if (part.mimeType === mimeType && !part.filename)
+    return partText_(messageId, part);
   var parts = part.parts || [];
   for (var index = 0; index < parts.length; index += 1) {
     var value = findPartBody_(messageId, parts[index], mimeType);
@@ -185,7 +189,8 @@ function plainBody_(message) {
   var html = findPartBody_(message.id, message.payload, 'text/html');
   if (html) return htmlToText_(html);
   var root = partText_(message.id, message.payload);
-  if (root) return message.payload.mimeType === 'text/html' ? htmlToText_(root) : root;
+  if (root)
+    return message.payload.mimeType === 'text/html' ? htmlToText_(root) : root;
   return String(message.snippet || '');
 }
 
@@ -211,15 +216,14 @@ function encodeSubject_(value) {
   var safe = safeHeader_(value);
   if (!/[^\x20-\x7E]/.test(safe)) return safe;
   return (
-    '=?UTF-8?B?' +
-    Utilities.base64Encode(safe, Utilities.Charset.UTF_8) +
-    '?='
+    '=?UTF-8?B?' + Utilities.base64Encode(safe, Utilities.Charset.UTF_8) + '?='
   );
 }
 
 function createGmailDraft_(item) {
   var recipient = parseAddress_(item.to);
-  if (!recipient) throw new Error('Draft recipient is not a valid email address.');
+  if (!recipient)
+    throw new Error('Draft recipient is not a valid email address.');
   var raw = [
     'To: ' + recipient,
     'Subject: ' + encodeSubject_(item.subject),
@@ -272,20 +276,39 @@ function reconcileSentDrafts_() {
         '/threads/' + encodeURIComponent(item.threadId) + '?format=full',
         'get',
       );
-      var sent = (thread.messages || []).some(function (message) {
-        return (message.labelIds || []).indexOf('SENT') !== -1;
+      var sentMessage = null;
+      (thread.messages || []).forEach(function (message) {
+        if (
+          (message.labelIds || []).indexOf('SENT') !== -1 &&
+          (!sentMessage ||
+            Number(message.internalDate || 0) >
+              Number(sentMessage.internalDate || 0))
+        )
+          sentMessage = message;
       });
-      if (!sent) {
+      if (!sentMessage) {
         remaining.push(item);
         return;
       }
+      var sentTimestamp = Number(sentMessage.internalDate || 0);
+      if (!sentTimestamp)
+        throw new Error('Sent Gmail message did not include a timestamp.');
+      api_('/api/automation/outbound-contact', 'post', {
+        leadId: item.leadId,
+        threadId: item.threadId,
+        sentMessageId: sentMessage.id,
+        sentAt: new Date(sentTimestamp).toISOString(),
+        subject: getHeader_(sentMessage, 'Subject').slice(0, 300),
+      });
       gmailApi_(
         '/threads/' + encodeURIComponent(item.threadId) + '/modify',
         'post',
         { addLabelIds: [labelId] },
       );
     } catch (error) {
-      console.warn('Could not reconcile draft thread ' + item.threadId + ': ' + error);
+      console.warn(
+        'Could not reconcile draft thread ' + item.threadId + ': ' + error,
+      );
       remaining.push(item);
     }
   });
@@ -390,12 +413,27 @@ function runRegressionWatch() {
   api_('/api/automation/regression-watch', 'post', {});
 }
 
+function runSlaWatch() {
+  api_('/api/automation/sla-watch', 'post', {});
+}
+
+function runSourceWatch() {
+  api_('/api/automation/source-watch', 'post', {});
+}
+
+function runPrivacyCleanup() {
+  api_('/api/automation/privacy-cleanup', 'post', {});
+}
+
 function installTriggers() {
   var managed = [
     'createProposalDrafts',
     'syncInboundReplies',
     'discoverBuyerIntent',
     'runRegressionWatch',
+    'runSlaWatch',
+    'runSourceWatch',
+    'runPrivacyCleanup',
   ];
   ScriptApp.getProjectTriggers().forEach(function (trigger) {
     if (managed.indexOf(trigger.getHandlerFunction()) !== -1)
@@ -417,6 +455,13 @@ function installTriggers() {
   ScriptApp.newTrigger('runRegressionWatch')
     .timeBased()
     .atHour(8)
+    .everyDays(1)
+    .create();
+  ScriptApp.newTrigger('runSlaWatch').timeBased().everyHours(1).create();
+  ScriptApp.newTrigger('runSourceWatch').timeBased().everyHours(1).create();
+  ScriptApp.newTrigger('runPrivacyCleanup')
+    .timeBased()
+    .atHour(3)
     .everyDays(1)
     .create();
 }

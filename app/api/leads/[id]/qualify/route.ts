@@ -7,8 +7,10 @@ import {
   markQualified,
 } from '@/lib/database';
 import {
+  deriveCorpusFindings,
   deriveDeterministicFindings,
-  scrapeStorefrontPreview,
+  isSuccessfulStorefrontDocument,
+  runStorefrontPreflight,
 } from '@/lib/firecrawl';
 import { isOperatorRequest } from '@/lib/operator-auth';
 
@@ -59,8 +61,37 @@ export async function POST(
       { status: 409 },
     );
   try {
-    const document = await scrapeStorefrontPreview(parsed.data.storeUrl);
-    const findings = deriveDeterministicFindings(document);
+    const preflight = await runStorefrontPreflight(parsed.data.storeUrl, {
+      limit: 5,
+    });
+    const successfulPages = preflight.pages.filter(({ document }) =>
+      isSuccessfulStorefrontDocument(document),
+    );
+    if (!successfulPages.length)
+      return Response.json(
+        {
+          error:
+            'The public mobile preflight could not load any successful storefront page',
+          attempted: preflight.attemptedRoutes.length,
+          failures: preflight.failures,
+        },
+        { status: 502 },
+      );
+    const pageFindings = preflight.pages.flatMap(({ requestedUrl, document }) =>
+      deriveDeterministicFindings(document).map((finding) => ({
+        ...finding,
+        url:
+          document.metadata?.sourceURL ??
+          document.metadata?.url ??
+          requestedUrl,
+        screenshotUrl: document.screenshot,
+        statusCode: document.metadata?.statusCode,
+      })),
+    );
+    const corpusFindings = deriveCorpusFindings(
+      preflight.pages.map(({ document }) => document),
+    );
+    const findings = [...pageFindings, ...corpusFindings];
     const proof = findings[0];
     await markQualified({
       id,
@@ -68,24 +99,25 @@ export async function POST(
       storeUrl: parsed.data.storeUrl,
       contactEmail: parsed.data.contactEmail || undefined,
       contactChannel: parsed.data.contactChannel,
-      proofUrl:
-        document.metadata?.sourceURL ??
-        document.metadata?.url ??
-        parsed.data.storeUrl,
+      proofUrl: proof?.url ?? preflight.pages[0].requestedUrl,
       proofSummary:
         proof?.evidence ??
-        'Public mobile storefront preview completed; human evidence review required.',
+        `Public mobile preflight loaded ${successfulPages.length} of ${preflight.attemptedRoutes.length} selected pages successfully; human evidence review required.`,
     });
     for (const finding of findings) {
       await addFinding({
         leadId: id,
-        url: document.metadata?.sourceURL ?? parsed.data.storeUrl,
         ...finding,
-        screenshotUrl: document.screenshot,
-        statusCode: document.metadata?.statusCode,
       });
     }
-    return Response.json({ ok: true, findings: findings.length });
+    return Response.json({
+      ok: true,
+      attempted: preflight.attemptedRoutes.length,
+      checked: preflight.pages.length,
+      successful: successfulPages.length,
+      failures: preflight.failures,
+      findings: findings.length,
+    });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : 'Preview failed' },

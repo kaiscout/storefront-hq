@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { publicConfig } from '@/lib/config';
 import { listDraftableDirectEmailLeads, transitionLead } from '@/lib/database';
+import { offer } from '@/lib/offer';
 import { buildProposal } from '@/lib/pipeline';
 import { hasAutomationSecret } from '@/lib/security';
 
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
       { error: 'Launch setup is incomplete' },
       { status: 503 },
     );
-  const leads = await listDraftableDirectEmailLeads(250);
+  const leads = await listDraftableDirectEmailLeads(offer.pageLimit);
   const drafts = leads.map((lead) => ({
     leadId: lead.id,
     to: lead.contact_email,

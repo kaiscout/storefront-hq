@@ -8,7 +8,9 @@ import {
   setLeadNextAction,
 } from '@/lib/database';
 import {
+  deriveCorpusFindings,
   deriveDeterministicFindings,
+  getCrawl,
   type ScrapeDocument,
 } from '@/lib/firecrawl';
 import { sha256Hex, verifyHexHmac } from '@/lib/security';
@@ -62,6 +64,25 @@ export async function POST(request: Request) {
         }
       }
     } else if (event.type === 'crawl.completed') {
+      let documents = event.data ?? [];
+      if (!documents.length) documents = (await getCrawl(event.id)).data ?? [];
+      for (const document of documents) {
+        const url =
+          document.metadata?.sourceURL ?? document.metadata?.url ?? '';
+        if (!url) continue;
+        for (const finding of deriveDeterministicFindings(document)) {
+          await addFinding({
+            leadId,
+            url,
+            ...finding,
+            screenshotUrl: document.screenshot,
+            statusCode: document.metadata?.statusCode,
+          });
+        }
+      }
+      for (const finding of deriveCorpusFindings(documents)) {
+        await addFinding({ leadId, ...finding });
+      }
       await setLeadNextAction(
         leadId,
         'Validate findings, select the top 12, and deliver the evidence pack',

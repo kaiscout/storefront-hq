@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  deriveCorpusFindings,
+  deriveDeterministicFindings,
   discoverExplicitIntent,
+  isSuccessfulStorefrontDocument,
+  runStorefrontPreflight,
+  selectStorefrontPreflightRoutes,
   storefrontSnapshot,
 } from '../lib/firecrawl.ts';
 
@@ -52,7 +57,7 @@ void test('discovery filters noisy pages and ranks recent replyable requests fir
               description:
                 'We need our ecommerce checkout tested. Email proposals to owner@merchant.example.',
               url: 'https://merchant.example/rfp/storefront-audit',
-              date: '6 days ago',
+              date: '2 days ago',
             },
             {
               title: 'Looking for Shopify QA? Hire our team',
@@ -100,4 +105,115 @@ void test('discovery filters noisy pages and ranks recent replyable requests fir
     if (originalApiKey === undefined) delete process.env.FIRECRAWL_API_KEY;
     else process.env.FIRECRAWL_API_KEY = originalApiKey;
   }
+});
+
+void test('preflight route selection is deterministic, same-origin and capped at five pages', () => {
+  const routes = selectStorefrontPreflightRoutes(
+    'https://shop.example/?campaign=launch',
+    {
+      links: [
+        '/pages/about',
+        '/products/zeta?variant=2',
+        'https://other.example/products/nope',
+        '/collections/summer#featured',
+        '/account/login',
+        '/products/alpha',
+        '/assets/theme.css',
+      ],
+    },
+  );
+  assert.deepEqual(routes, [
+    'https://shop.example/',
+    'https://shop.example/products/alpha',
+    'https://shop.example/products/zeta',
+    'https://shop.example/collections/summer',
+    'https://shop.example/pages/about',
+  ]);
+});
+
+void test('five-page preflight keeps successful pages when one selected route fails', async () => {
+  const calls: string[] = [];
+  const result = await runStorefrontPreflight('https://shop.example/', {
+    scrape: async (url) => {
+      calls.push(url);
+      if (url.endsWith('/products/beta')) throw new Error('temporary block');
+      return {
+        links:
+          url === 'https://shop.example/'
+            ? [
+                '/products/alpha',
+                '/products/beta',
+                '/collections/summer',
+                '/pages/about',
+                '/pages/contact',
+              ]
+            : [],
+        metadata: { sourceURL: url, statusCode: 200, title: url },
+      };
+    },
+  });
+
+  assert.equal(calls.length, 5);
+  assert.equal(result.attemptedRoutes.length, 5);
+  assert.equal(result.pages.length, 4);
+  assert.deepEqual(result.failures, [
+    {
+      url: 'https://shop.example/products/beta',
+      error: 'temporary block',
+    },
+  ]);
+});
+
+void test('conservative page and corpus findings use only captured crawl evidence', () => {
+  const documents = [
+    {
+      links: ['/products/broken'],
+      metadata: {
+        sourceURL: 'https://shop.example/',
+        statusCode: 200,
+        title: 'Summer collection',
+      },
+    },
+    {
+      links: [],
+      metadata: {
+        sourceURL: 'https://shop.example/collections/summer',
+        statusCode: 200,
+        title: 'Summer collection',
+      },
+    },
+    {
+      links: [],
+      metadata: {
+        sourceURL: 'https://shop.example/products/broken',
+        statusCode: 404,
+        title: 'Not found',
+      },
+    },
+  ];
+  const pageFindings = deriveDeterministicFindings({
+    markdown: 'Product details',
+    metadata: {
+      sourceURL: 'https://shop.example/products/untitled',
+      statusCode: 200,
+      title: '   ',
+    },
+  });
+  const corpusFindings = deriveCorpusFindings(documents);
+
+  assert.ok(pageFindings.some((item) => item.category === 'page-title'));
+  assert.ok(corpusFindings.some((item) => item.category === 'duplicate-title'));
+  assert.ok(
+    corpusFindings.some(
+      (item) =>
+        item.category === 'broken-internal-destination' &&
+        item.referringUrl === 'https://shop.example/',
+    ),
+  );
+  assert.doesNotMatch(
+    JSON.stringify([...pageFindings, ...corpusFindings]),
+    /guaranteed|revenue loss|conversion uplift/i,
+  );
+  assert.equal(isSuccessfulStorefrontDocument(documents[0]), true);
+  assert.equal(isSuccessfulStorefrontDocument(documents[2]), false);
 });

@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+
+import { offer } from '@/lib/offer';
+
 import './globals.css';
 
 const geistSans = Geist({
@@ -16,25 +19,24 @@ const siteUrl = process.env.PUBLIC_SITE_URL?.trim() || 'http://localhost:3000';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: '48-Hour Shopify Storefront QA Sprint',
-  description:
-    'Reproducible storefront findings, fix-ready recommendations, and 30 days of regression watch—delivered in 48 hours.',
+  title: `${offer.brandName} | ${offer.deliveryHours}-Hour Shopify ${offer.productName}`,
+  description: `Reproducible storefront findings, fix-ready recommendations, and ${offer.watchDays} days of regression watch—delivered in ${offer.deliveryHours} hours.`,
   openGraph: {
     type: 'website',
-    title: '48-Hour Storefront QA',
+    title: `${offer.brandName} | ${offer.productName}`,
     description: 'Reproducible findings. Fix-ready evidence.',
     images: [
       {
         url: '/og.png',
         width: 1729,
         height: 910,
-        alt: '48-Hour Storefront QA — reproducible findings and fix-ready evidence',
+        alt: `${offer.brandName} ${offer.productName} — reproducible findings and fix-ready evidence`,
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: '48-Hour Storefront QA',
+    title: `${offer.brandName} | ${offer.productName}`,
     description: 'Reproducible findings. Fix-ready evidence.',
     images: ['/og.png'],
   },

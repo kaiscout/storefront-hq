@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Copy, Loader2, Play } from 'lucide-react';
+import { Check, Copy, FileText, Loader2, Play } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -207,6 +207,12 @@ export function LeadActions({
   if (['paid', 'fulfilling', 'delivered'].includes(lead.status)) {
     return (
       <div className="flex min-w-[260px] flex-col items-end gap-2">
+        <a
+          href={`/ops/leads/${lead.id}/report`}
+          className="inline-flex h-7 items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-[0.8rem] font-medium transition-colors hover:bg-muted"
+        >
+          <FileText className="size-3.5" /> Evidence pack
+        </a>
         {lead.status === 'paid' ? (
           <Button
             size="sm"

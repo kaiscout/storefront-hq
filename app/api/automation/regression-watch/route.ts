@@ -8,6 +8,7 @@ import {
   scrapeStorefrontPreview,
   storefrontSnapshot,
 } from '@/lib/firecrawl';
+import { offer } from '@/lib/offer';
 import { hasAutomationSecret } from '@/lib/security';
 
 export async function POST(request: Request) {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
 
   for (const target of targets) {
     const results = await Promise.allSettled(
-      target.routes.slice(0, 10).map(async (url) => {
+      target.routes.slice(0, offer.watchRouteLimit).map(async (url) => {
         const document = await scrapeStorefrontPreview(url);
         const snapshot = await recordRouteSnapshot({
           leadId: target.leadId,

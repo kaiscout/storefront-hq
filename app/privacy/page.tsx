@@ -2,6 +2,10 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 import { publicConfig } from '@/lib/config';
+import {
+  UNQUALIFIED_RESEARCH_RETENTION_DAYS,
+  UNSUCCESSFUL_LEAD_RETENTION_DAYS,
+} from '@/lib/operations';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,11 +86,12 @@ export default function PrivacyPage() {
           <section>
             <h2>Retention</h2>
             <p>
-              Unqualified research records are deleted within 30 days.
-              Unsuccessful enquiries are deleted within 90 days. Contract,
-              payment and delivery records are kept only as long as required for
-              legal and accounting duties. A minimal suppression record may be
-              kept to make sure an objection is honoured.
+              Unqualified research records are deleted within{' '}
+              {UNQUALIFIED_RESEARCH_RETENTION_DAYS} days. Unsuccessful enquiries
+              are deleted within {UNSUCCESSFUL_LEAD_RETENTION_DAYS} days.
+              Contract, payment and delivery records are kept only as long as
+              required for legal and accounting duties. A minimal suppression
+              record may be kept to make sure an objection is honoured.
             </p>
           </section>
           <section>

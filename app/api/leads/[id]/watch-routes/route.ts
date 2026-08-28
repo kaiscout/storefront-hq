@@ -1,10 +1,13 @@
 import { z } from 'zod';
 
 import { getLead, replaceWatchRoutes } from '@/lib/database';
+import { offer } from '@/lib/offer';
 import { isOperatorRequest } from '@/lib/operator-auth';
 
 const routesSchema = z.object({
-  routes: z.array(z.url().refine((url) => url.startsWith('https://'))).max(10),
+  routes: z
+    .array(z.url().refine((url) => url.startsWith('https://')))
+    .max(offer.watchRouteLimit),
 });
 
 export async function POST(
@@ -16,7 +19,7 @@ export async function POST(
   const parsed = routesSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success)
     return Response.json(
-      { error: 'Provide no more than 10 HTTPS routes' },
+      { error: `Provide no more than ${offer.watchRouteLimit} HTTPS routes` },
       { status: 400 },
     );
   const { id } = await context.params;

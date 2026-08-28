@@ -153,7 +153,8 @@ void test('buyer-intent gate rejects explicit no-hire requests and source-platfo
       rejectionReason: 'vendor-page',
     },
     {
-      title: 'Looking for Shopify merchants to test a true profit analytics tool',
+      title:
+        'Looking for Shopify merchants to test a true profit analytics tool',
       description:
         'We are looking for Shopify store owners to test our app and join the beta pilot.',
       url: 'https://community.shopify.com/t/looking-for-shopify-merchants-to-test-a-tool/669687',
@@ -183,6 +184,31 @@ void test('buyer-intent gate rejects requests known to be stale', () => {
 
   assert.equal(result.accepted, false);
   assert.equal(result.rejectionReason, 'stale-request');
+});
+
+void test('buyer-intent gate enforces 72 hours only when a publication date is usable', () => {
+  const common = {
+    title: 'Looking for Shopify QA help',
+    description:
+      'We need someone to audit our ecommerce storefront and test broken links.',
+    url: 'https://www.reddit.com/r/shopify/comments/freshness123/qa_help/',
+    now: new Date('2026-08-28T12:00:00.000Z'),
+  };
+  const boundary = assessBuyerIntent({
+    ...common,
+    publishedDate: '2026-08-25T12:00:00.000Z',
+  });
+  const tooOld = assessBuyerIntent({
+    ...common,
+    publishedDate: '2026-08-25T11:59:59.999Z',
+  });
+  const unknown = assessBuyerIntent(common);
+
+  assert.equal(boundary.accepted, true);
+  assert.equal(tooOld.accepted, false);
+  assert.equal(tooOld.rejectionReason, 'stale-request');
+  assert.equal(unknown.accepted, true);
+  assert.equal(unknown.publishedAt, undefined);
 });
 
 void test('source-platform allowlist requires a replyable post URL', () => {

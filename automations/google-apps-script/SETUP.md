@@ -28,6 +28,8 @@ send or permanent-delete call.
 5. Run `createProposalDrafts()` manually once. Confirm that a draft is created but not sent.
 6. Run `syncInboundReplies()` with a labelled test thread and confirm the control room changes.
 
-The daily discovery and regression-watch triggers use Firecrawl through the Site. The watch runs only for the client-approved routes entered in the control room. The 5-minute reply trigger and 15-minute draft trigger run on Google’s infrastructure, so the local computer can be off.
+The daily discovery and regression-watch triggers use Firecrawl through the Site. Public source-page watch runs hourly and compares only the publicly accessible response for active, allowlisted source-platform URLs; it does not request authenticated or login-gated content. Regression watch runs only for client-approved routes entered in the control room. An hourly SLA check summarizes paid work approaching or exceeding 48 hours, and a daily cleanup applies the published 30/90-day privacy rules while retaining suppression and paid/contract records. The 5-minute reply trigger and 15-minute draft trigger run on Google’s infrastructure, so the local computer can be off.
+
+When a human sends a reviewed Gmail draft, the next reconciliation records the sent thread in the Site ledger before applying the watch label. Reconciliation is idempotent and the script still contains no send call.
 
 In Firecrawl account webhook settings, configure the same HMAC secret stored as `FIRECRAWL_WEBHOOK_SECRET` on the Site. Configure Cal and Stripe to call the deployed `/api/webhooks/cal` and `/api/webhooks/stripe` URLs with their matching Site secrets. Intake remains closed until every value in `.env.example` is configured, including the operator allowlist.

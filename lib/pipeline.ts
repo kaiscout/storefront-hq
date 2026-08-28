@@ -1,3 +1,5 @@
+import { offer } from './offer.ts';
+
 export const pipelineStatuses = [
   'discovered',
   'qualified',
@@ -326,13 +328,11 @@ function normalizedPublishedDate(value: string | undefined, now: Date) {
 
 function recencyFor(publishedAt: string | undefined, now: Date) {
   if (!publishedAt) return { rank: 0, boost: 0, stale: false };
-  const ageDays = (now.getTime() - Date.parse(publishedAt)) / 86_400_000;
-  if (ageDays > 31) return { rank: -1, boost: 0, stale: true };
-  if (ageDays < -2) return { rank: -1, boost: 0, stale: true };
-  if (ageDays <= 2) return { rank: 4, boost: 18, stale: false };
-  if (ageDays <= 7) return { rank: 3, boost: 14, stale: false };
-  if (ageDays <= 14) return { rank: 2, boost: 8, stale: false };
-  return { rank: 1, boost: 3, stale: false };
+  const ageHours = (now.getTime() - Date.parse(publishedAt)) / (60 * 60 * 1000);
+  if (ageHours > 72) return { rank: -1, boost: 0, stale: true };
+  if (ageHours < -48) return { rank: -1, boost: 0, stale: true };
+  if (ageHours <= 48) return { rank: 4, boost: 18, stale: false };
+  return { rank: 3, boost: 14, stale: false };
 }
 
 export function assessBuyerIntent(input: {
@@ -515,11 +515,11 @@ export function buildProposal(input: {
     ? `I checked the public storefront and confirmed one concrete issue: ${input.proofSummary}`
     : 'I can begin with a five-page public-storefront preflight before you commit.';
   const booking = input.calUrl
-    ? `\n\nIf a short fit check is useful, here is my 20-minute calendar: ${input.calUrl}`
+    ? `\n\nIf a short fit check is useful, here is my ${offer.handoffMinutes}-minute calendar: ${input.calUrl}`
     : '';
   const operatorName = input.operatorName?.trim() || '[OPERATOR NAME]';
   return {
-    subject: `48-hour storefront QA for ${input.companyName}`,
-    body: `Hello ${input.companyName} team,\n\nI’m responding to your request, “${input.sourceTitle}.” ${proof}\n\nI offer a fixed £895 Shopify QA sprint: up to 250 public pages, 12 reproducible findings with screenshots and fix-ready recommendations, plus 30 days of checks on 10 critical routes. Delivery is within 48 hours. If I cannot produce at least eight actionable issues, I refund the fee.\n\nThere is no backend access, retainer, or implementation upsell.${booking}\n\nBest,\n${operatorName}`,
+    subject: `${offer.deliveryHours}-hour storefront QA for ${input.companyName}`,
+    body: `Hello ${input.companyName} team,\n\nI’m responding to your request, “${input.sourceTitle}.” ${proof}\n\nI offer the fixed £${offer.priceGbp} ${offer.productName}: up to ${offer.pageLimit} public pages, ${offer.selectedFindings} reproducible findings with screenshots and fix-ready recommendations, plus ${offer.watchDays} days of checks on ${offer.watchRouteLimit} critical routes. Delivery is within ${offer.deliveryHours} hours. If I cannot produce at least ${offer.minimumFindings} actionable issues, I refund the fee.\n\nThere is no backend access, retainer, or implementation upsell.${booking}\n\nBest,\n${operatorName}`,
   };
 }

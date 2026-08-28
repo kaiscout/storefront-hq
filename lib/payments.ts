@@ -1,3 +1,5 @@
+import { offer } from './offer.ts';
+
 export function isClearedCheckoutPayment(
   eventType: string,
   paymentStatus?: string,
@@ -27,7 +29,7 @@ export function isExpectedLiveCheckoutPayment(
     payment.livemode === true &&
     paymentLinkId &&
     payment.paymentLink === paymentLinkId &&
-    payment.amountTotal === 89_500 &&
+    payment.amountTotal === offer.amountPence &&
     payment.currency === 'gbp',
   );
 }

@@ -6,6 +6,15 @@ import {
   type LeadRecord,
   type PipelineStatus,
 } from '@/lib/pipeline';
+import {
+  activeSourcePlatformStatuses,
+  automatedSlaNextAction,
+  deliverySlaSummary,
+  UNQUALIFIED_RESEARCH_RETENTION_DAYS,
+  UNSUCCESSFUL_LEAD_RETENTION_DAYS,
+  unsuccessfulLeadStatuses,
+} from '@/lib/operations';
+import { offer } from '@/lib/offer';
 
 const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS leads (
@@ -408,6 +417,103 @@ export async function retryFailedAudit(id: string, nextAction: string) {
     .run();
 }
 
+export async function watchDeliverySla(now = new Date()) {
+  await ensureSchema();
+  const result = await d1()
+    .prepare(
+      `SELECT id, company_name, status, paid_at, next_action
+       FROM leads
+       WHERE paid_at IS NOT NULL AND status IN ('paid', 'fulfilling')
+       ORDER BY paid_at ASC`,
+    )
+    .all<{
+      id: string;
+      company_name: string;
+      status: PipelineStatus;
+      paid_at: string;
+      next_action: string | null;
+    }>();
+
+  const approaching: Array<Record<string, unknown>> = [];
+  const overdue: Array<Record<string, unknown>> = [];
+  let nextActionsUpdated = 0;
+  for (const lead of result.results) {
+    const summary = deliverySlaSummary(lead.paid_at, now);
+    if (!summary || summary.state === 'on_track') continue;
+    const nextAction = automatedSlaNextAction(summary);
+    const update = await d1()
+      .prepare(
+        `UPDATE leads SET next_action = ?, updated_at = datetime('now')
+         WHERE id = ? AND status = ? AND paid_at = ?
+           AND (next_action IS NULL OR trim(next_action) = '' OR next_action LIKE '[SLA] %')
+           AND COALESCE(next_action, '') <> ?`,
+      )
+      .bind(nextAction, lead.id, lead.status, lead.paid_at, nextAction)
+      .run();
+    const item = {
+      leadId: lead.id,
+      companyName: lead.company_name,
+      status: lead.status,
+      paidAt: summary.paidAt,
+      dueAt: summary.dueAt,
+      hoursRemaining: summary.hoursRemaining,
+      nextActionUpdated: Boolean(update.meta.changes),
+    };
+    nextActionsUpdated += Number(update.meta.changes ?? 0);
+    (summary.state === 'overdue' ? overdue : approaching).push(item);
+  }
+
+  return {
+    activeDeliveries: result.results.length,
+    approaching,
+    overdue,
+    nextActionsUpdated,
+  };
+}
+
+export async function runPrivacyRetentionCleanup(now = new Date()) {
+  await ensureSchema();
+  if (!Number.isFinite(now.getTime())) throw new Error('Invalid cleanup time');
+  const unqualifiedCutoff = new Date(
+    now.getTime() - UNQUALIFIED_RESEARCH_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const unsuccessfulCutoff = new Date(
+    now.getTime() - UNSUCCESSFUL_LEAD_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const database = d1();
+  const unqualified = await database
+    .prepare(
+      `DELETE FROM leads
+       WHERE paid_at IS NULL
+         AND status = 'discovered'
+         AND explicit_intent = 0
+         AND created_at <= datetime(?)`,
+    )
+    .bind(unqualifiedCutoff)
+    .run();
+  const placeholders = unsuccessfulLeadStatuses.map(() => '?').join(', ');
+  const unsuccessful = await database
+    .prepare(
+      `DELETE FROM leads
+       WHERE paid_at IS NULL
+         AND status IN (${placeholders})
+         AND updated_at <= datetime(?)`,
+    )
+    .bind(...unsuccessfulLeadStatuses, unsuccessfulCutoff)
+    .run();
+  const unqualifiedResearchDeleted = Number(unqualified.meta.changes ?? 0);
+  const unsuccessfulLeadsDeleted = Number(unsuccessful.meta.changes ?? 0);
+  return {
+    unqualifiedResearchDeleted,
+    unsuccessfulLeadsDeleted,
+    totalDeleted: unqualifiedResearchDeleted + unsuccessfulLeadsDeleted,
+    unqualifiedCutoff,
+    unsuccessfulCutoff,
+    suppressionRecordsPreserved: true,
+    paidAndContractRecordsPreserved: true,
+  };
+}
+
 export async function isSuppressed(identifier: string) {
   await ensureSchema();
   const row = await d1()
@@ -534,6 +640,82 @@ export async function recordMessage(input: {
   return { leadId: lead?.id ?? null, classification };
 }
 
+export async function recordOutboundContact(input: {
+  leadId: string;
+  threadId: string;
+  sentMessageId: string;
+  sentAt: string;
+  subject?: string;
+}) {
+  await ensureSchema();
+  const lead = await getLead(input.leadId);
+  if (!lead) throw new Error('Lead not found');
+  if (lead.contact_channel !== 'direct-email')
+    throw new Error('Only direct-email leads can record Gmail contact');
+  const sentAt = new Date(input.sentAt);
+  if (!Number.isFinite(sentAt.getTime())) throw new Error('Invalid sent time');
+  const sentAtIso = sentAt.toISOString();
+  const externalId = `gmail-thread:${input.threadId}`;
+  const inserted = await d1()
+    .prepare(
+      `INSERT OR IGNORE INTO messages (
+        id, lead_id, external_id, direction, channel, subject, classification, created_at
+      ) VALUES (?, ?, ?, 'outbound', 'gmail', ?, ?, datetime(?))`,
+    )
+    .bind(
+      crypto.randomUUID(),
+      input.leadId,
+      externalId,
+      input.subject?.slice(0, 300) ?? null,
+      `sent:${input.sentMessageId}`,
+      sentAtIso,
+    )
+    .run();
+  const awaitReply =
+    '[Outbound] Await reply; follow up only within the permitted channel rules';
+  await d1()
+    .prepare(
+      `UPDATE leads SET
+         last_contact_at = CASE
+           WHEN last_contact_at IS NULL OR datetime(last_contact_at) < datetime(?)
+             THEN datetime(?)
+           ELSE last_contact_at
+         END,
+         next_action = CASE
+           WHEN status = 'drafted'
+             AND (
+               next_action IS NULL OR trim(next_action) = ''
+               OR next_action = 'Review the Gmail draft and send only if channel rules allow'
+               OR next_action LIKE '[Outbound] %'
+             )
+             THEN ?
+           ELSE next_action
+         END,
+         updated_at = datetime('now')
+       WHERE id = ? AND contact_channel = 'direct-email'
+         AND (
+           last_contact_at IS NULL OR datetime(last_contact_at) < datetime(?)
+           OR (
+             status = 'drafted'
+             AND COALESCE(next_action, '') <> ?
+             AND (
+               next_action IS NULL OR trim(next_action) = ''
+               OR next_action = 'Review the Gmail draft and send only if channel rules allow'
+               OR next_action LIKE '[Outbound] %'
+             )
+           )
+         )`,
+    )
+    .bind(sentAtIso, sentAtIso, awaitReply, input.leadId, sentAtIso, awaitReply)
+    .run();
+  return {
+    leadId: input.leadId,
+    threadId: input.threadId,
+    recorded: Boolean(inserted.meta.changes),
+    duplicate: !inserted.meta.changes,
+  };
+}
+
 export async function claimWebhookEvent(
   provider: string,
   externalId: string,
@@ -640,7 +822,7 @@ export async function recordRouteSnapshot(input: {
       `INSERT INTO route_snapshots (
         id, lead_id, url, content_hash, status_code, page_title
       ) SELECT ?, ?, ?, ?, ?, ?
-      WHERE (SELECT COUNT(*) FROM route_snapshots WHERE lead_id = ?) < 10`,
+       WHERE (SELECT COUNT(*) FROM route_snapshots WHERE lead_id = ?) < ?`,
     )
     .bind(
       crypto.randomUUID(),
@@ -650,6 +832,7 @@ export async function recordRouteSnapshot(input: {
       input.statusCode ?? null,
       input.pageTitle ?? null,
       input.leadId,
+      offer.watchRouteLimit,
     )
     .run();
   return {
@@ -668,7 +851,7 @@ export async function listRegressionWatchTargets() {
        FROM leads
        INNER JOIN watch_routes ON watch_routes.lead_id = leads.id
        WHERE leads.paid_at IS NOT NULL
-         AND leads.paid_at >= datetime('now', '-30 days')
+          AND leads.paid_at >= datetime('now', '-${offer.watchDays} days')
          AND leads.status IN ('paid', 'fulfilling', 'delivered')
        ORDER BY leads.paid_at ASC, watch_routes.created_at ASC`,
     )
@@ -677,6 +860,31 @@ export async function listRegressionWatchTargets() {
   for (const row of rows.results)
     grouped.set(row.lead_id, [...(grouped.get(row.lead_id) ?? []), row.url]);
   return Array.from(grouped, ([leadId, routes]) => ({ leadId, routes }));
+}
+
+export async function listActiveSourcePlatformTargets(limit = 100) {
+  await ensureSchema();
+  const placeholders = activeSourcePlatformStatuses.map(() => '?').join(', ');
+  const result = await d1()
+    .prepare(
+      `SELECT id AS lead_id, source_url AS url, status
+       FROM leads
+       WHERE contact_channel = 'source-platform'
+         AND paid_at IS NULL
+         AND status IN (${placeholders})
+       ORDER BY updated_at ASC
+       LIMIT ?`,
+    )
+    .bind(
+      ...activeSourcePlatformStatuses,
+      Math.max(1, Math.min(Math.floor(limit), 250)),
+    )
+    .all<{ lead_id: string; url: string; status: PipelineStatus }>();
+  return result.results.map((row) => ({
+    leadId: row.lead_id,
+    url: row.url,
+    status: row.status,
+  }));
 }
 
 export async function listWatchRoutes() {
@@ -723,6 +931,7 @@ export async function replaceWatchRoutes(leadId: string, routes: string[]) {
 export async function addFinding(input: {
   leadId: string;
   url: string;
+  referringUrl?: string;
   title: string;
   severity: string;
   category: string;
@@ -732,16 +941,17 @@ export async function addFinding(input: {
   statusCode?: number;
 }) {
   await ensureSchema();
-  await d1()
+  const result = await d1()
     .prepare(
       `INSERT OR IGNORE INTO findings (
-        id, lead_id, url, title, severity, category, evidence, recommendation, screenshot_url, status_code
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, lead_id, url, referring_url, title, severity, category, evidence, recommendation, screenshot_url, status_code
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       crypto.randomUUID(),
       input.leadId,
       input.url,
+      input.referringUrl ?? null,
       input.title,
       input.severity,
       input.category,
@@ -751,6 +961,16 @@ export async function addFinding(input: {
       input.statusCode ?? null,
     )
     .run();
+  return { created: Boolean(result.meta.changes) };
+}
+
+export async function deleteFinding(leadId: string, findingId: string) {
+  await ensureSchema();
+  const result = await d1()
+    .prepare('DELETE FROM findings WHERE id = ? AND lead_id = ?')
+    .bind(findingId, leadId)
+    .run();
+  return Boolean(result.meta.changes);
 }
 
 export async function listFindings(leadId: string) {

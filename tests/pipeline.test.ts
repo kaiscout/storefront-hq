@@ -152,6 +152,13 @@ void test('buyer-intent gate rejects explicit no-hire requests and source-platfo
       url: 'https://www.linkedin.com/posts/vendor123_shopify-speed-activity-123',
       rejectionReason: 'vendor-page',
     },
+    {
+      title: 'Looking for Shopify merchants to test a true profit analytics tool',
+      description:
+        'We are looking for Shopify store owners to test our app and join the beta pilot.',
+      url: 'https://community.shopify.com/t/looking-for-shopify-merchants-to-test-a-tool/669687',
+      rejectionReason: 'vendor-page',
+    },
   ] as const;
 
   for (const item of cases) {

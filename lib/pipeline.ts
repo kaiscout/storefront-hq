@@ -207,6 +207,12 @@ const nonBuyerSignals = [
   /\b(?:not|don't|do not)\s+(?:want|need)\s+(?:an?\s+)?(?:agency|consultant|freelancer|provider|vendor)\b/i,
 ];
 
+const productTesterRecruitmentSignals = [
+  /\blooking for (?:shopify )?(?:merchants|store owners|users|testers) to (?:test|try|beta[ -]?test)\b/i,
+  /\b(?:test|try|beta[ -]?test) (?:our|my|a) (?:app|tool|platform|product)\b/i,
+  /\b(?:beta|early access|pilot) (?:users|testers|merchants|store owners)\b/i,
+];
+
 const employmentSignals = [
   /\bfull[- ]time\b/i,
   /\bpart[- ]time\b/i,
@@ -390,6 +396,15 @@ export function assessBuyerIntent(input: {
       score: 0,
       reasons: [],
       rejectionReason: 'not-explicit-request',
+      recencyRank: -1,
+    };
+
+  if (productTesterRecruitmentSignals.some((pattern) => pattern.test(text)))
+    return {
+      accepted: false,
+      score: 0,
+      reasons: [],
+      rejectionReason: 'vendor-page',
       recencyRank: -1,
     };
 

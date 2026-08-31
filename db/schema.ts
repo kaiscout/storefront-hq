@@ -18,6 +18,7 @@ export const leads = sqliteTable(
     contactChannel: text('contact_channel')
       .notNull()
       .default('source-platform'),
+    contactPermission: text('contact_permission').notNull().default('none'),
     sourceUrl: text('source_url').notNull(),
     sourceTitle: text('source_title').notNull(),
     sourceExcerpt: text('source_excerpt'),
@@ -80,6 +81,21 @@ export const suppression = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [uniqueIndex('idx_suppression_identifier').on(table.identifier)],
+);
+
+export const intakeRateLimits = sqliteTable(
+  'intake_rate_limits',
+  {
+    identifier: text('identifier').primaryKey(),
+    windowStartedAt: text('window_started_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    attempts: integer('attempts').notNull().default(0),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [index('idx_intake_rate_limits_updated').on(table.updatedAt)],
 );
 
 export const findings = sqliteTable(
@@ -249,5 +265,30 @@ export const stripeCheckoutSessions = sqliteTable(
   },
   (table) => [
     index('idx_stripe_checkout_outcome').on(table.outcome, table.updatedAt),
+  ],
+);
+
+export const calBookings = sqliteTable(
+  'cal_bookings',
+  {
+    bookingUid: text('booking_uid').primaryKey(),
+    attendeeEmail: text('attendee_email'),
+    status: text('status').notNull(),
+    leadId: text('lead_id').references(() => leads.id, {
+      onDelete: 'set null',
+    }),
+    lastEventId: text('last_event_id').notNull(),
+    lastEventType: text('last_event_type').notNull(),
+    startsAt: text('starts_at'),
+    endsAt: text('ends_at'),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('idx_cal_bookings_status_updated').on(table.status, table.updatedAt),
   ],
 );

@@ -110,9 +110,23 @@ void test('Apps Script schedules protected operations without adding a send API'
     assert.match(source, new RegExp(endpoint));
   assert.doesNotMatch(source, /\/(?:messages|drafts)\/send\b/i);
   assert.doesNotMatch(source, /GmailApp\.(?:sendEmail|createDraft)/);
+  assert.match(
+    source,
+    /REQUIRED_BUSINESS_EMAIL = 'front\.storecheckqa@gmail\.com'/,
+  );
+  assert.match(source, /gmailApi_\('\/profile', 'get'\)/);
+  assert.match(source, /function requireBusinessGmailProfile_/);
+  assert.match(
+    source,
+    /function createProposalDrafts\(\) \{\s*requireBusinessGmailProfile_\(\)/,
+  );
+  assert.match(
+    source,
+    /function syncInboundReplies\(\) \{\s*requireBusinessGmailProfile_\(\)/,
+  );
 });
 
-void test('consented website enquiries enter the draft-first Gmail queue', () => {
+void test('public website enquiries remain quarantined until email ownership is proven', () => {
   const databaseSource = readFileSync(
     new URL('../lib/database.ts', import.meta.url),
     'utf8',
@@ -120,6 +134,23 @@ void test('consented website enquiries enter the draft-first Gmail queue', () =>
   const draftRouteSource = readFileSync(
     new URL('../app/api/automation/gmail-drafts/route.ts', import.meta.url),
     'utf8',
+  );
+
+  assert.match(
+    databaseSource,
+    /'unverified-inbound', 'unverified-intake'[\s\S]*'Website availability request'[\s\S]*0, 100, 'discovered'/,
+  );
+  assert.match(
+    databaseSource,
+    /contact_channel = 'inbound'[\s\S]*contact_permission = 'verified-inbound'[\s\S]*contact_channel = 'unverified-inbound'/,
+  );
+  assert.match(
+    databaseSource,
+    /contact_permission IN \('verified-inbound', 'explicit-public-request'\)/,
+  );
+  assert.match(
+    databaseSource,
+    /source_title = 'Website availability request'[\s\S]*last_contact_at IS NULL[\s\S]*last_reply_at IS NULL/,
   );
 
   assert.match(
@@ -147,4 +178,24 @@ void test('consented website enquiries enter the draft-first Gmail queue', () =>
     draftRouteSource,
     /z\.array\(z\.uuid\(\)\)\.max\(gmailDraftBatchLimit\)/,
   );
+});
+
+void test('every Cal booking is persisted and unmatched bookings create a visible lead', () => {
+  const databaseSource = readFileSync(
+    new URL('../lib/database.ts', import.meta.url),
+    'utf8',
+  );
+  const calRouteSource = readFileSync(
+    new URL('../app/api/webhooks/cal/route.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(databaseSource, /CREATE TABLE IF NOT EXISTS cal_bookings/);
+  assert.match(databaseSource, /'Cal fit-call booking'/);
+  assert.match(databaseSource, /'scheduled-contact'/);
+  assert.match(calRouteSource, /recordCalBookingEvent/);
+  assert.match(
+    calRouteSource,
+    /completeWebhookEvent\('cal', eventId, booking\)/,
+  );
+  assert.doesNotMatch(calRouteSource, /getLeadByEmail/);
 });

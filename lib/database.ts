@@ -26,6 +26,7 @@ const schemaStatements = [
     contact_name TEXT,
     contact_email TEXT,
     contact_channel TEXT NOT NULL DEFAULT 'source-platform',
+    contact_permission TEXT NOT NULL DEFAULT 'none',
     source_url TEXT NOT NULL,
     source_title TEXT NOT NULL,
     source_excerpt TEXT,
@@ -66,6 +67,13 @@ const schemaStatements = [
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_suppression_identifier ON suppression(identifier)`,
+  `CREATE TABLE IF NOT EXISTS intake_rate_limits (
+    identifier TEXT PRIMARY KEY,
+    window_started_at TEXT NOT NULL DEFAULT (datetime('now')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_intake_rate_limits_updated ON intake_rate_limits(updated_at)`,
   `CREATE TABLE IF NOT EXISTS findings (
     id TEXT PRIMARY KEY,
     lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
@@ -156,6 +164,19 @@ const schemaStatements = [
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
   `CREATE INDEX IF NOT EXISTS idx_stripe_checkout_outcome ON stripe_checkout_sessions(outcome, updated_at)`,
+  `CREATE TABLE IF NOT EXISTS cal_bookings (
+    booking_uid TEXT PRIMARY KEY,
+    attendee_email TEXT,
+    status TEXT NOT NULL,
+    lead_id TEXT REFERENCES leads(id) ON DELETE SET NULL,
+    last_event_id TEXT NOT NULL,
+    last_event_type TEXT NOT NULL,
+    starts_at TEXT,
+    ends_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_cal_bookings_status_updated ON cal_bookings(status, updated_at)`,
   `PRAGMA optimize`,
 ];
 
@@ -185,6 +206,44 @@ export async function ensureSchema() {
   ] as const;
   for (const [name, statement] of additions)
     if (!existing.has(name)) await database.prepare(statement).run();
+  const leadColumns = await database
+    .prepare("PRAGMA table_info('leads')")
+    .all<{ name: string }>();
+  if (
+    !leadColumns.results.some((column) => column.name === 'contact_permission')
+  )
+    await database
+      .prepare(
+        "ALTER TABLE leads ADD COLUMN contact_permission TEXT NOT NULL DEFAULT 'none'",
+      )
+      .run();
+  await database
+    .prepare(
+      `UPDATE leads SET contact_permission = CASE
+         WHEN contact_channel = 'direct-email' AND explicit_intent = 1
+           THEN 'explicit-public-request'
+         WHEN contact_channel = 'inbound' AND explicit_intent = 1
+              AND last_reply_at IS NOT NULL
+           THEN 'verified-inbound'
+         ELSE contact_permission
+       END
+       WHERE contact_permission = 'none'`,
+    )
+    .run();
+  await database
+    .prepare(
+      `UPDATE leads SET contact_channel = 'unverified-inbound',
+       contact_permission = 'unverified-intake', explicit_intent = 0,
+       status = 'discovered',
+       next_action = 'Await email ownership confirmation or Cal booking; never contact from intake alone',
+       updated_at = datetime('now')
+       WHERE source_title = 'Website availability request'
+         AND contact_channel = 'inbound'
+         AND status = 'replied'
+         AND last_contact_at IS NULL
+         AND last_reply_at IS NULL`,
+    )
+    .run();
 }
 
 export async function listLeads(limit = 100) {
@@ -214,6 +273,7 @@ export async function listDraftableDirectEmailLeads(limit = 250) {
            )
          )
          AND leads.explicit_intent = 1
+         AND leads.contact_permission IN ('verified-inbound', 'explicit-public-request')
          AND leads.contact_email IS NOT NULL
          AND NOT EXISTS (
            SELECT 1 FROM suppression
@@ -253,6 +313,153 @@ export async function getLeadByEmail(email: string) {
     )
     .bind(email.trim().toLowerCase())
     .first<LeadRecord>();
+}
+
+export async function recordCalBookingEvent(input: {
+  bookingUid: string;
+  eventId: string;
+  eventType: string;
+  attendeeEmail?: string;
+  startsAt?: string;
+  endsAt?: string;
+}) {
+  await ensureSchema();
+  const database = d1();
+  const attendeeEmail = input.attendeeEmail?.trim().toLowerCase() || null;
+  const status =
+    input.eventType === 'BOOKING_CANCELLED'
+      ? 'cancelled'
+      : ['BOOKING_CREATED', 'BOOKING_RESCHEDULED'].includes(input.eventType)
+        ? 'booked'
+        : 'ignored';
+  const existingBooking = await database
+    .prepare('SELECT lead_id FROM cal_bookings WHERE booking_uid = ?')
+    .bind(input.bookingUid)
+    .first<{ lead_id: string | null }>();
+
+  let leadId = existingBooking?.lead_id ?? null;
+  let matchedExistingLead = Boolean(leadId);
+  let createdLead = false;
+  let ambiguousMatches = 0;
+  if (!leadId && attendeeEmail) {
+    const candidates = await database
+      .prepare(
+        `SELECT id FROM leads
+         WHERE lower(contact_email) = ?
+           AND status NOT IN ('closed_lost', 'suppressed', 'delivered')
+         ORDER BY updated_at DESC
+         LIMIT 3`,
+      )
+      .bind(attendeeEmail)
+      .all<{ id: string }>();
+    ambiguousMatches = candidates.results.length;
+    if (candidates.results.length === 1) {
+      leadId = candidates.results[0].id;
+      matchedExistingLead = true;
+    }
+  }
+
+  if (!leadId && attendeeEmail && status === 'booked') {
+    leadId = crypto.randomUUID();
+    const emailDomain = attendeeEmail.split('@')[1] || 'calendar prospect';
+    const inserted = await database
+      .prepare(
+        `INSERT INTO leads (
+          id, company_name, contact_email, contact_channel, contact_permission,
+          source_url, source_title, explicit_intent, fit_score, status,
+          next_action, booked_at
+        ) VALUES (?, ?, ?, 'cal-booking', 'scheduled-contact', ?,
+          'Cal fit-call booking', 1, 100, 'booked',
+          'Review the booking details and run the fit call', datetime('now'))
+        ON CONFLICT(source_url) DO NOTHING`,
+      )
+      .bind(
+        leadId,
+        `Calendar prospect (${emailDomain})`,
+        attendeeEmail,
+        `cal-booking:${input.bookingUid}`,
+      )
+      .run();
+    createdLead = Boolean(inserted.meta.changes);
+    if (!createdLead) {
+      const stored = await database
+        .prepare('SELECT id FROM leads WHERE source_url = ?')
+        .bind(`cal-booking:${input.bookingUid}`)
+        .first<{ id: string }>();
+      leadId = stored?.id ?? null;
+    }
+  }
+
+  await database
+    .prepare(
+      `INSERT INTO cal_bookings (
+        booking_uid, attendee_email, status, lead_id, last_event_id,
+        last_event_type, starts_at, ends_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(booking_uid) DO UPDATE SET
+        attendee_email = COALESCE(excluded.attendee_email, cal_bookings.attendee_email),
+        status = excluded.status,
+        lead_id = COALESCE(excluded.lead_id, cal_bookings.lead_id),
+        last_event_id = excluded.last_event_id,
+        last_event_type = excluded.last_event_type,
+        starts_at = COALESCE(excluded.starts_at, cal_bookings.starts_at),
+        ends_at = COALESCE(excluded.ends_at, cal_bookings.ends_at),
+        updated_at = datetime('now')`,
+    )
+    .bind(
+      input.bookingUid,
+      attendeeEmail,
+      status,
+      leadId,
+      input.eventId,
+      input.eventType,
+      input.startsAt ?? null,
+      input.endsAt ?? null,
+    )
+    .run();
+
+  if (leadId && status === 'booked') {
+    await database
+      .prepare(
+        `UPDATE leads SET
+          explicit_intent = 1,
+          contact_permission = CASE
+            WHEN contact_permission IN ('none', 'unverified-intake')
+              THEN 'scheduled-contact'
+            ELSE contact_permission
+          END,
+          status = CASE
+            WHEN status IN ('discovered', 'qualified', 'proposal_ready', 'drafted', 'replied')
+              THEN 'booked'
+            ELSE status
+          END,
+          booked_at = COALESCE(booked_at, datetime('now')),
+          next_action = CASE
+            WHEN status IN ('discovered', 'qualified', 'proposal_ready', 'drafted', 'replied', 'booked')
+              THEN 'Run the fit call and send the payment link after scope is confirmed'
+            ELSE next_action
+          END,
+          updated_at = datetime('now')
+         WHERE id = ?`,
+      )
+      .bind(leadId)
+      .run();
+  } else if (leadId && status === 'cancelled') {
+    await setLeadNextAction(
+      leadId,
+      'Booking cancelled; decide whether a response is appropriate',
+      ['replied', 'booked'],
+    );
+  }
+
+  return {
+    bookingUid: input.bookingUid,
+    status,
+    leadId,
+    matchedExistingLead,
+    createdLead,
+    ambiguousMatches,
+  };
 }
 
 export async function listLeadsByEmail(email: string, limit = 10) {
@@ -335,8 +542,8 @@ export async function createInboundLead(input: {
     .prepare(
       `INSERT INTO leads (
         id, company_name, store_url, contact_name, contact_email, contact_channel,
-        source_url, source_title, explicit_intent, fit_score, status, next_action
-      ) VALUES (?, ?, ?, ?, ?, 'inbound', ?, 'Website availability request', 1, 100, 'replied', 'Review request and offer a fit call')
+        contact_permission, source_url, source_title, explicit_intent, fit_score, status, next_action
+      ) VALUES (?, ?, ?, ?, ?, 'unverified-inbound', 'unverified-intake', ?, 'Website availability request', 0, 100, 'discovered', 'Await email ownership confirmation or Cal booking; never contact from intake alone')
       ON CONFLICT(source_url) DO NOTHING`,
     )
     .bind(
@@ -354,6 +561,55 @@ export async function createInboundLead(input: {
     .first<{ id: string }>();
   if (!stored) throw new Error('Inbound request could not be stored');
   return stored.id;
+}
+
+export async function consumePublicIntakeAttempt(
+  identifier: string,
+  maxAttempts = 5,
+  windowMinutes = 60,
+) {
+  await ensureSchema();
+  const safeLimit = Math.max(1, Math.min(Math.floor(maxAttempts), 100));
+  const safeWindow = Math.max(1, Math.min(Math.floor(windowMinutes), 24 * 60));
+  const cutoff = new Date(Date.now() - safeWindow * 60_000).toISOString();
+  const database = d1();
+  await database
+    .prepare(
+      `INSERT INTO intake_rate_limits (identifier, attempts)
+       VALUES (?, 1)
+       ON CONFLICT(identifier) DO UPDATE SET
+         attempts = CASE
+           WHEN datetime(intake_rate_limits.window_started_at) <= datetime(?) THEN 1
+           ELSE intake_rate_limits.attempts + 1
+         END,
+         window_started_at = CASE
+           WHEN datetime(intake_rate_limits.window_started_at) <= datetime(?) THEN datetime('now')
+           ELSE intake_rate_limits.window_started_at
+         END,
+         updated_at = datetime('now')`,
+    )
+    .bind(identifier, cutoff, cutoff)
+    .run();
+  const current = await database
+    .prepare(
+      `SELECT attempts, window_started_at
+       FROM intake_rate_limits WHERE identifier = ?`,
+    )
+    .bind(identifier)
+    .first<{ attempts: number; window_started_at: string }>();
+  await database
+    .prepare(
+      `DELETE FROM intake_rate_limits
+       WHERE updated_at < datetime('now', '-2 days')`,
+    )
+    .run();
+  const attempts = Number(current?.attempts ?? safeLimit + 1);
+  return {
+    allowed: attempts <= safeLimit,
+    attempts,
+    maxAttempts: safeLimit,
+    retryAfterSeconds: attempts <= safeLimit ? 0 : safeWindow * 60,
+  };
 }
 
 export async function transitionLead(
@@ -596,8 +852,8 @@ export async function markQualified(input: {
     throw new Error('This address is suppressed and cannot be drafted');
   const result = await d1()
     .prepare(
-      `UPDATE leads SET company_name = ?, store_url = ?, contact_email = ?, contact_channel = ?, proof_url = ?,
-       proof_summary = ?, explicit_intent = 1, status = 'qualified',
+      `UPDATE leads SET company_name = ?, store_url = ?, contact_email = ?, contact_channel = ?,
+       contact_permission = ?, proof_url = ?, proof_summary = ?, explicit_intent = 1, status = 'qualified',
        next_action = 'Review evidence and approve proposal', updated_at = datetime('now')
        WHERE id = ? AND status = 'discovered'`,
     )
@@ -606,6 +862,9 @@ export async function markQualified(input: {
       input.storeUrl,
       input.contactEmail?.toLowerCase() ?? null,
       input.contactChannel,
+      input.contactChannel === 'direct-email'
+        ? 'explicit-public-request'
+        : 'none',
       input.proofUrl ?? null,
       input.proofSummary ?? null,
       input.id,
@@ -623,8 +882,11 @@ export async function recordMessage(input: {
 }) {
   await ensureSchema();
   const email = input.from.trim().toLowerCase();
-  const lead = await getLeadByEmail(email);
+  let lead = await getLeadByEmail(email);
   const classification = classifyReply(`${input.subject ?? ''}\n${input.body}`);
+  const verifiesWebsiteRequest =
+    lead?.contact_channel === 'unverified-inbound' &&
+    classification !== 'out_of_office';
   const inserted = await d1()
     .prepare(
       `INSERT OR IGNORE INTO messages (
@@ -643,6 +905,20 @@ export async function recordMessage(input: {
 
   if (!inserted.meta.changes)
     return { leadId: lead?.id ?? null, classification, duplicate: true };
+
+  if (lead && verifiesWebsiteRequest) {
+    await d1()
+      .prepare(
+        `UPDATE leads SET contact_channel = 'inbound',
+         contact_permission = 'verified-inbound', explicit_intent = 1,
+         status = 'replied', next_action = ?, last_reply_at = datetime('now'),
+         updated_at = datetime('now')
+         WHERE id = ? AND contact_channel = 'unverified-inbound'`,
+      )
+      .bind(`Reply classified: ${classification}`, lead.id)
+      .run();
+    lead = await getLead(lead.id);
+  }
 
   if (classification === 'unsubscribe') {
     await d1()
@@ -675,6 +951,8 @@ export async function recordMessage(input: {
       await advanceLead(lead.id, 'booked', nextAction);
     } else if (classification === 'out_of_office') {
       await setLeadNextAction(lead.id, nextAction, beforePayment);
+    } else if (verifiesWebsiteRequest) {
+      await setLeadNextAction(lead.id, nextAction, ['replied']);
     } else if (
       classification !== 'unsubscribe' &&
       classification !== 'not_interested'
@@ -704,7 +982,12 @@ export async function recordOutboundContact(input: {
   await ensureSchema();
   const lead = await getLead(input.leadId);
   if (!lead) throw new Error('Lead not found');
-  if (!['direct-email', 'inbound'].includes(lead.contact_channel))
+  if (
+    !['direct-email', 'inbound'].includes(lead.contact_channel) ||
+    !['verified-inbound', 'explicit-public-request'].includes(
+      lead.contact_permission,
+    )
+  )
     throw new Error('Only consented email leads can record Gmail contact');
   const sentAt = new Date(input.sentAt);
   if (!Number.isFinite(sentAt.getTime())) throw new Error('Invalid sent time');

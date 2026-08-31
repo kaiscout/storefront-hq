@@ -50,6 +50,13 @@
       "when": 1787953106758,
       "tag": "0006_dusty_arclight",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1788166904486,
+      "tag": "0007_majestic_peter_parker",
+      "breakpoints": true
     }
   ]
 }

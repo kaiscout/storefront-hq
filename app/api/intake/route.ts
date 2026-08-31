@@ -1,20 +1,37 @@
 import { z } from 'zod';
 
 import { publicConfig } from '@/lib/config';
-import { createInboundLead } from '@/lib/database';
+import { consumePublicIntakeAttempt, createInboundLead } from '@/lib/database';
+import {
+  intakeRateLimitKey,
+  isPublicHttpsStoreUrl,
+  normalizedSingleLine,
+  readRequestBodyWithinLimit,
+} from '@/lib/intake';
 
-const intakeSchema = z.object({
-  companyName: z.string().trim().min(2).max(120),
-  contactName: z.string().trim().min(2).max(120),
-  contactEmail: z.email().trim().max(254),
-  storeUrl: z
-    .url()
-    .trim()
-    .max(500)
-    .refine((value) => value.startsWith('https://'), 'Use an HTTPS store URL'),
-  consent: z.literal(true),
-  website: z.string().max(0).optional(),
-});
+const intakeSchema = z
+  .object({
+    companyName: z
+      .string()
+      .transform(normalizedSingleLine)
+      .pipe(z.string().min(2).max(120)),
+    contactName: z
+      .string()
+      .transform(normalizedSingleLine)
+      .pipe(z.string().min(2).max(120)),
+    contactEmail: z.string().trim().toLowerCase().pipe(z.email().max(254)),
+    storeUrl: z
+      .url()
+      .trim()
+      .max(500)
+      .refine(isPublicHttpsStoreUrl, 'Use a public HTTPS store URL')
+      .transform((value) => new URL(value).origin),
+    consent: z.literal(true),
+    website: z.string().max(500).optional(),
+  })
+  .strict();
+
+const maximumIntakeBodyBytes = 8 * 1024;
 
 async function inboundKey(email: string, storeUrl: string) {
   const bytes = new TextEncoder().encode(
@@ -35,17 +52,79 @@ export async function POST(request: Request) {
       { status: 503 },
     );
   }
-  const parsed = intakeSchema.safeParse(await request.json().catch(() => null));
+  if (
+    !request.headers
+      .get('content-type')
+      ?.toLowerCase()
+      .startsWith('application/json')
+  )
+    return Response.json(
+      { error: 'Use application/json.' },
+      { status: 415, headers: { 'Cache-Control': 'no-store' } },
+    );
+  const declaredLength = Number(request.headers.get('content-length') ?? '0');
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > maximumIntakeBodyBytes
+  )
+    return Response.json(
+      { error: 'Request is too large.' },
+      { status: 413, headers: { 'Cache-Control': 'no-store' } },
+    );
+  const rawBody = await readRequestBodyWithinLimit(
+    request,
+    maximumIntakeBodyBytes,
+  );
+  if (rawBody === null)
+    return Response.json(
+      { error: 'Request is too large.' },
+      { status: 413, headers: { 'Cache-Control': 'no-store' } },
+    );
+  let body: unknown = null;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {}
+  const parsed = intakeSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json(
       { error: 'Please check the form fields.' },
       { status: 400 },
     );
   }
-  if (parsed.data.website) return Response.json({ ok: true });
+  if (parsed.data.website)
+    return Response.json(
+      { ok: true },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
+  const sourceRateLimit = await consumePublicIntakeAttempt(
+    await intakeRateLimitKey(request),
+  );
+  const globalRateLimit = await consumePublicIntakeAttempt(
+    'intake-rate:global',
+    30,
+  );
+  if (!sourceRateLimit.allowed || !globalRateLimit.allowed)
+    return Response.json(
+      { error: 'Too many requests. Please try again later.' },
+      {
+        status: 429,
+        headers: {
+          'Cache-Control': 'no-store',
+          'Retry-After': String(
+            Math.max(
+              sourceRateLimit.retryAfterSeconds,
+              globalRateLimit.retryAfterSeconds,
+            ),
+          ),
+        },
+      },
+    );
   const id = await createInboundLead({
     ...parsed.data,
     sourceUrl: await inboundKey(parsed.data.contactEmail, parsed.data.storeUrl),
   });
-  return Response.json({ ok: true, id, bookingUrl: config.calUrl || null });
+  return Response.json(
+    { ok: true, id, bookingUrl: config.calUrl || null },
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
 }

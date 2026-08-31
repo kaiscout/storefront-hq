@@ -9,7 +9,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-export function StartForm({ enabled }: { enabled: boolean }) {
+export function StartForm({
+  enabled,
+  contactEmail,
+}: {
+  enabled: boolean;
+  contactEmail: string;
+}) {
   const [state, setState] = useState<
     'idle' | 'submitting' | 'success' | 'error'
   >('idle');
@@ -59,6 +65,17 @@ export function StartForm({ enabled }: { enabled: boolean }) {
         <p className="mt-2 leading-7">
           We’ll first confirm that your store fits the fixed scope. No backend
           invitation is needed.
+        </p>
+        <p className="mt-3 text-sm leading-6">
+          To prevent someone entering another person’s address, this form never
+          triggers an automatic email. For the fastest response,{' '}
+          <a
+            className="font-bold underline underline-offset-4"
+            href={`mailto:${contactEmail}?subject=Storefront%20QA%20fit%20check&body=I%27m%20interested%20in%20the%20Storefront%20QA%20Sprint%20and%20submitted%20my%20public%20storefront%20through%20storefronthq.co.uk.%20Please%20confirm%20the%20next%20steps.`}
+          >
+            confirm from your work email
+          </a>{' '}
+          or book the fit call below.
         </p>
         {bookingUrl ? (
           <a

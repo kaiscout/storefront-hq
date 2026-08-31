@@ -8,6 +8,7 @@
 
 var WATCH_LABEL = 'rt10-watch';
 var PENDING_DRAFTS_PROPERTY = 'PENDING_DRAFT_THREADS';
+var REQUIRED_BUSINESS_EMAIL = 'front.storecheckqa@gmail.com';
 
 function config_() {
   var properties = PropertiesService.getScriptProperties();
@@ -63,6 +64,7 @@ function gmailApi_(path, method, body) {
   var verb = String(method || 'get').toLowerCase();
   var pathname = String(path || '').split('?', 1)[0];
   var allowed =
+    (verb === 'get' && pathname === '/profile') ||
     (verb === 'get' && pathname === '/labels') ||
     (verb === 'post' && pathname === '/labels') ||
     (verb === 'post' && pathname === '/drafts') ||
@@ -93,6 +95,37 @@ function gmailApi_(path, method, body) {
       'Gmail API ' + path + ' returned ' + status + ': ' + text.slice(0, 500),
     );
   return text ? JSON.parse(text) : {};
+}
+
+function requireBusinessGmailProfile_() {
+  var cfg = config_();
+  if (cfg.businessEmail !== REQUIRED_BUSINESS_EMAIL) {
+    throw new Error(
+      'BUSINESS_EMAIL must be exactly ' + REQUIRED_BUSINESS_EMAIL + '.',
+    );
+  }
+  var lastError = null;
+  for (var attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      var profile = gmailApi_('/profile', 'get');
+      var observed = String(profile.emailAddress || '')
+        .trim()
+        .toLowerCase();
+      if (observed !== REQUIRED_BUSINESS_EMAIL) {
+        throw new Error(
+          'Gmail profile mismatch: expected ' +
+            REQUIRED_BUSINESS_EMAIL +
+            ', observed ' +
+            (observed || '[missing]'),
+        );
+      }
+      return profile;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) Utilities.sleep(1000);
+    }
+  }
+  throw new Error('Gmail profile check failed closed: ' + lastError);
 }
 
 function base64UrlEncode_(value) {
@@ -316,6 +349,7 @@ function reconcileSentDrafts_() {
 }
 
 function createProposalDrafts() {
+  requireBusinessGmailProfile_();
   reconcileSentDrafts_();
   var result = api_('/api/automation/gmail-drafts', 'get');
   var drafts = result.drafts || [];
@@ -340,6 +374,7 @@ function createProposalDrafts() {
 }
 
 function syncInboundReplies() {
+  requireBusinessGmailProfile_();
   reconcileSentDrafts_();
   var cfg = config_();
   var lastSync = Number(cfg.properties.getProperty('LAST_SYNC_MS') || 0);

@@ -32,6 +32,7 @@ export type LeadRecord = {
   contact_name: string | null;
   contact_email: string | null;
   contact_channel: string;
+  contact_permission: string;
   source_url: string;
   source_title: string;
   source_excerpt: string | null;

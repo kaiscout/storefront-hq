@@ -32,7 +32,10 @@ export default function StartPage() {
               will never be asked for Shopify admin access.
             </p>
           </div>
-          <StartForm enabled={config.launchReady} />
+          <StartForm
+            enabled={config.launchReady}
+            contactEmail={config.contactEmail}
+          />
           <div className="flex gap-3 border-t pt-5 text-sm leading-6 text-muted-foreground">
             <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[#477a5b]" />
             <p>

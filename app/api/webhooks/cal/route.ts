@@ -1,10 +1,8 @@
 import {
-  advanceLead,
   claimWebhookEvent,
   completeWebhookEvent,
   failWebhookEvent,
-  getLeadByEmail,
-  setLeadNextAction,
+  recordCalBookingEvent,
 } from '@/lib/database';
 import { verifyHexHmac } from '@/lib/security';
 
@@ -15,6 +13,8 @@ type CalPayload = {
     uid?: string;
     bookingUid?: string;
     attendees?: Array<{ email?: string }>;
+    startTime?: string;
+    endTime?: string;
   };
 };
 
@@ -25,35 +25,34 @@ export async function POST(request: Request) {
   if (!(await verifyHexHmac(secret, raw, signature))) {
     return Response.json({ error: 'Invalid signature' }, { status: 401 });
   }
-  const event = JSON.parse(raw) as CalPayload;
+  let event: CalPayload;
+  try {
+    event = JSON.parse(raw) as CalPayload;
+  } catch {
+    return Response.json({ error: 'Invalid payload' }, { status: 400 });
+  }
   const eventType = event.triggerEvent ?? 'UNKNOWN';
-  const bookingId = event.payload?.uid ?? event.payload?.bookingUid ?? 'none';
+  const bookingId = event.payload?.uid ?? event.payload?.bookingUid;
+  if (!bookingId || bookingId.length > 300)
+    return Response.json(
+      { error: 'Missing booking identity' },
+      { status: 400 },
+    );
   const eventId = `${bookingId}:${eventType}:${event.createdAt ?? ''}`;
   if (!(await claimWebhookEvent('cal', eventId, eventType)))
     return Response.json({ ok: true, duplicate: true });
   try {
     const email = event.payload?.attendees?.[0]?.email;
-    const lead = email ? await getLeadByEmail(email) : null;
-    if (lead) {
-      if (
-        eventType === 'BOOKING_CREATED' ||
-        eventType === 'BOOKING_RESCHEDULED'
-      ) {
-        await advanceLead(
-          lead.id,
-          'booked',
-          'Run the fit call and send the payment link',
-        );
-      } else if (eventType === 'BOOKING_CANCELLED') {
-        await setLeadNextAction(
-          lead.id,
-          'Booking cancelled; decide whether to follow up',
-          ['replied', 'booked'],
-        );
-      }
-    }
-    await completeWebhookEvent('cal', eventId);
-    return Response.json({ ok: true, matched: Boolean(lead) });
+    const booking = await recordCalBookingEvent({
+      bookingUid: bookingId,
+      eventId,
+      eventType,
+      attendeeEmail: email,
+      startsAt: event.payload?.startTime,
+      endsAt: event.payload?.endTime,
+    });
+    await completeWebhookEvent('cal', eventId, booking);
+    return Response.json({ ok: true, ...booking });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Webhook processing failed';

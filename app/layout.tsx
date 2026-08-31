@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: `${offer.brandName} | ${offer.deliveryHours}-Hour Shopify ${offer.productName}`,
   description: `Reproducible storefront findings, fix-ready recommendations, and ${offer.watchDays} days of regression watch—delivered in ${offer.deliveryHours} hours.`,
+  icons: {
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
+  },
   openGraph: {
     type: 'website',
     title: `${offer.brandName} | ${offer.productName}`,

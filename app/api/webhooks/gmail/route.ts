@@ -8,9 +8,17 @@ const payloadSchema = z.object({
     .array(
       z.object({
         externalId: z.string().min(1).max(300),
+        threadId: z
+          .string()
+          .trim()
+          .min(1)
+          .max(200)
+          .regex(/^[a-z0-9_-]+$/i)
+          .optional(),
         from: z.email().max(254),
         subject: z.string().max(300).optional(),
         body: z.string().max(20_000),
+        receivedAt: z.iso.datetime({ offset: true }).optional(),
       }),
     )
     .max(50),

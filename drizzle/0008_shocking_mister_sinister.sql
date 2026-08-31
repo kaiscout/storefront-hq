@@ -1,0 +1,1 @@
+ALTER TABLE `cal_bookings` ADD `last_event_created` integer DEFAULT 0 NOT NULL;

@@ -19,6 +19,8 @@ const sentContactSchema = z.object({
     .regex(/^[a-z0-9_-]+$/i),
   sentAt: z.iso.datetime({ offset: true }),
   subject: z.string().trim().max(300).optional(),
+  sourceMessageId: z.string().trim().min(1).max(300).optional(),
+  claimToken: z.uuid().optional(),
 });
 
 export async function POST(request: Request) {

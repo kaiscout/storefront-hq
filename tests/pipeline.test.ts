@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 
 import {
   assessBuyerIntent,
+  buildInboundConsultantReply,
   buildProposal,
   canTransition,
   classifyReply,
+  extractAuthoredReply,
   extractPublishedReplyEmail,
   isReplyableSourcePlatform,
   scoreOpportunity,
@@ -16,6 +18,16 @@ void test('opt-out language takes precedence over commercial intent', () => {
     classifyReply('Interested, but please remove me from all future email'),
     'unsubscribe',
   );
+  for (const phrase of [
+    "Don't email me again",
+    "Please don't reach out to me",
+    'Take me off your list',
+    'No more emails',
+    'STOP',
+    'Stop contacting me',
+    'Please leave me alone',
+  ])
+    assert.equal(classifyReply(phrase), 'unsubscribe');
 });
 
 void test('classifies common reply states', () => {
@@ -26,6 +38,21 @@ void test('classifies common reply states', () => {
     'out_of_office',
   );
   assert.equal(classifyReply('No thanks, not a fit'), 'not_interested');
+  assert.equal(classifyReply('Can we get scheduled?'), 'question');
+  assert.equal(classifyReply('I have not booked yet'), 'question');
+  assert.equal(classifyReply("I've booked the call"), 'booked');
+  assert.equal(
+    classifyReply('I booked someone else, no thanks — not interested'),
+    'not_interested',
+  );
+});
+
+void test('reply extraction removes quoted history before classification', () => {
+  const reply = extractAuthoredReply(
+    'No\n\nOn Sun, Aug 31, 2026 at 10:00 AM Storefront HQ wrote:\n> Interested?\n> Price: £895',
+  );
+  assert.equal(reply, 'No');
+  assert.equal(classifyReply(reply), 'ambiguous');
 });
 
 void test('pipeline rejects unsafe stage skipping', () => {
@@ -236,4 +263,52 @@ void test('proposal uses evidence without fabricated uplift claims', () => {
   assert.doesNotMatch(proposal.body, /revenue uplift|guaranteed conversion/i);
   assert.match(proposal.body, /\[OPERATOR NAME\]/);
   assert.match(proposal.body, /^Hello Morgan,/);
+});
+
+void test('inbound consultant replies answer the buyer context before proposing next steps', () => {
+  const reply = buildInboundConsultantReply({
+    companyName: 'Example Store',
+    contactName: 'Morgan',
+    storeUrl: 'https://example-store.test',
+    latestSubject: 'Pricing and turnaround?',
+    latestMessage:
+      'How much does the audit cost, how long does it take, and do you need admin access?',
+    classification: 'question',
+    calUrl: 'https://cal.example.test/fit',
+    operatorName: 'Deniz',
+  });
+  assert.equal(reply.subject, 'Re: Pricing and turnaround?');
+  assert.match(reply.body, /fixed at £895 GBP/);
+  assert.match(reply.body, /within 48 hours/);
+  assert.match(reply.body, /do not need a Shopify admin login/);
+  assert.match(reply.body, /https:\/\/example-store\.test/);
+  assert.match(reply.body, /three routes that matter most commercially/);
+  assert.match(reply.body, /https:\/\/cal\.example\.test\/fit/);
+  assert.doesNotMatch(reply.body, /guaranteed|conversion uplift/i);
+});
+
+void test('a booked consultant reply preserves the call without asking to book again', () => {
+  const reply = buildInboundConsultantReply({
+    companyName: 'Example Store',
+    latestMessage: 'I have one question about scope.',
+    classification: 'question',
+    alreadyBooked: true,
+    calUrl: 'https://cal.example.test/fit',
+    operatorName: 'Deniz',
+  });
+  assert.match(reply.body, /fit call already on the calendar/i);
+  assert.match(reply.body, /There is no need to book again/i);
+  assert.doesNotMatch(reply.body, /https:\/\/cal\.example\.test\/fit/);
+});
+
+void test('website-confirmation replies preserve the Gmail thread subject', () => {
+  const subject =
+    'Storefront QA confirmation [123e4567-e89b-42d3-a456-426614174000]';
+  const reply = buildInboundConsultantReply({
+    companyName: 'Example Store',
+    latestSubject: subject,
+    latestMessage: 'I confirm this request.',
+    classification: 'website_confirmation',
+  });
+  assert.equal(reply.subject, `Re: ${subject}`);
 });

@@ -194,6 +194,57 @@ void test('Stripe email fallback requires exactly one booked off-platform lead',
   );
 });
 
+void test('Cal-confirmed leads can reconcile payments without trusting bare intake', () => {
+  const scheduled = {
+    id: 'cal-booked',
+    contactEmail: 'buyer@example.com',
+    contactChannel: 'cal-booking',
+    contactPermission: 'scheduled-contact',
+    status: 'booked',
+  };
+  assert.deepEqual(
+    resolveStripePaymentLead([scheduled], null, 'BUYER@example.com'),
+    { matched: true, leadId: 'cal-booked', alreadyPaid: false },
+  );
+  assert.deepEqual(
+    resolveStripePaymentLead(
+      [
+        {
+          ...scheduled,
+          id: 'intake-booked',
+          contactChannel: 'unverified-inbound',
+        },
+      ],
+      null,
+      'buyer@example.com',
+    ),
+    { matched: true, leadId: 'intake-booked', alreadyPaid: false },
+  );
+  assert.deepEqual(
+    resolveStripePaymentLead(
+      [
+        {
+          ...scheduled,
+          id: 'unverified-intake',
+          contactChannel: 'unverified-inbound',
+          contactPermission: 'unverified-intake',
+        },
+      ],
+      null,
+      'buyer@example.com',
+    ),
+    { matched: false, reason: 'email-not-found' },
+  );
+  assert.deepEqual(
+    resolveStripePaymentLead(
+      [scheduled, { ...scheduled, id: 'second-cal-booking' }],
+      null,
+      'buyer@example.com',
+    ),
+    { matched: false, reason: 'email-ambiguous' },
+  );
+});
+
 void test('Stripe session outcome precedence prevents terminal-state regression', () => {
   assert.equal(
     shouldApplyStripeSessionOutcome(

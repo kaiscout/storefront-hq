@@ -1,4 +1,11 @@
 const blockedHostnameSuffixes = ['.local', '.localhost', '.internal'];
+const websiteConfirmationPrefix = 'Storefront QA confirmation';
+const uuidPattern =
+  '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+const websiteConfirmationPattern = new RegExp(
+  `^${websiteConfirmationPrefix} \\[(${uuidPattern})\\]$`,
+  'i',
+);
 
 function isBlockedIpv4(hostname: string) {
   const octets = hostname.split('.').map(Number);
@@ -71,6 +78,15 @@ export function isPublicHttpsStoreUrl(value: string) {
 
 export function normalizedSingleLine(value: string) {
   return value.trim().replace(/\s+/g, ' ');
+}
+
+export function websiteConfirmationSubject(leadId: string) {
+  return `${websiteConfirmationPrefix} [${leadId}]`;
+}
+
+export function parseWebsiteConfirmationSubject(subject: string) {
+  const match = websiteConfirmationPattern.exec(subject);
+  return match?.[1]?.toLowerCase() ?? null;
 }
 
 export async function readRequestBodyWithinLimit(

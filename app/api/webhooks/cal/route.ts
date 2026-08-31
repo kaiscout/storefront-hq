@@ -4,7 +4,8 @@ import {
   failWebhookEvent,
   recordCalBookingEvent,
 } from '@/lib/database';
-import { verifyHexHmac } from '@/lib/security';
+import { isCalBookingEventType, parseCalEventCreated } from '@/lib/cal';
+import { sha256Hex, verifyHexHmac } from '@/lib/security';
 
 type CalPayload = {
   triggerEvent?: string;
@@ -12,6 +13,7 @@ type CalPayload = {
   payload?: {
     uid?: string;
     bookingUid?: string;
+    rescheduleUid?: string;
     attendees?: Array<{ email?: string }>;
     startTime?: string;
     endTime?: string;
@@ -38,7 +40,25 @@ export async function POST(request: Request) {
       { error: 'Missing booking identity' },
       { status: 400 },
     );
-  const eventId = `${bookingId}:${eventType}:${event.createdAt ?? ''}`;
+  const rescheduleUid = event.payload?.rescheduleUid;
+  if (rescheduleUid && rescheduleUid.length > 300)
+    return Response.json(
+      { error: 'Invalid previous booking identity' },
+      { status: 400 },
+    );
+  const eventId = await sha256Hex(raw);
+  if (!isCalBookingEventType(eventType)) {
+    if (!(await claimWebhookEvent('cal', eventId, eventType)))
+      return Response.json({ ok: true, duplicate: true });
+    await completeWebhookEvent('cal', eventId, { ignored: true, eventType });
+    return Response.json({ ok: true, ignored: true, eventType });
+  }
+  const eventCreated = parseCalEventCreated(event.createdAt);
+  if (eventCreated === null)
+    return Response.json(
+      { error: 'Missing or invalid Cal event time' },
+      { status: 400 },
+    );
   if (!(await claimWebhookEvent('cal', eventId, eventType)))
     return Response.json({ ok: true, duplicate: true });
   try {
@@ -47,6 +67,8 @@ export async function POST(request: Request) {
       bookingUid: bookingId,
       eventId,
       eventType,
+      eventCreated,
+      rescheduleUid,
       attendeeEmail: email,
       startsAt: event.payload?.startTime,
       endsAt: event.payload?.endTime,

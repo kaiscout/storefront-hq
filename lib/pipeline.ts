@@ -69,13 +69,45 @@ export function canTransition(from: PipelineStatus, to: PipelineStatus) {
   return allowedTransitions[from].includes(to);
 }
 
+export function extractAuthoredReply(text: string) {
+  const authored: string[] = [];
+  for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
+    const trimmed = line.trim();
+    if (
+      /^On .+wrote:$/i.test(trimmed) ||
+      /^-{2,}\s*(?:Original|Forwarded) Message\s*-*$/i.test(trimmed) ||
+      /^(?:From|Sent|To|Subject):\s+/i.test(trimmed) ||
+      /^--\s*$/.test(trimmed)
+    )
+      break;
+    if (trimmed.startsWith('>')) continue;
+    authored.push(line);
+  }
+  return authored
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export function classifyReply(text: string): ReplyClassification {
   const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim();
 
   if (
     /\b(unsubscribe|remove me|stop emailing|do not contact|opt[ -]?out)\b/.test(
       normalized,
-    )
+    ) ||
+    /\b(?:do not|don'?t) (?:email|contact|message|reach out(?: to)?) me(?: again)?\b/.test(
+      normalized,
+    ) ||
+    /\b(?:take|remove) me off (?:your|the) (?:email )?list\b/.test(
+      normalized,
+    ) ||
+    /\bno more (?:emails?|messages?|contact)\b/.test(normalized) ||
+    /^(?:please\s+)?stop(?:\s+now)?[.!?]*$/.test(normalized) ||
+    /\bstop (?:emailing|contacting|messaging|reaching out to) me\b/.test(
+      normalized,
+    ) ||
+    /\bleave me alone\b/.test(normalized)
   ) {
     return 'unsubscribe';
   }
@@ -87,16 +119,26 @@ export function classifyReply(text: string): ReplyClassification {
     return 'out_of_office';
   }
   if (
-    /\b(booked|scheduled|calendar invite|see you (then|on))\b/.test(normalized)
-  ) {
-    return 'booked';
-  }
-  if (
     /\b(not interested|no thanks|no thank you|pass for now|not a fit)\b/.test(
       normalized,
     )
   ) {
     return 'not_interested';
+  }
+  if (
+    /\b(?:not|never|haven't|have not|hasn't|has not)\s+(?:booked|scheduled)\b/.test(
+      normalized,
+    ) ||
+    /\b(?:can|could|would)\s+(?:we|i)\s+(?:book|schedule)\b/.test(normalized)
+  ) {
+    return 'question';
+  }
+  if (
+    /\b(?:i(?:'ve| have)?\s+(?:just\s+)?(?:booked|scheduled)|booking (?:is )?confirmed|calendar invite received|see you (?:then|on))\b/.test(
+      normalized,
+    )
+  ) {
+    return 'booked';
   }
   if (
     /\b(interested|sounds good|let'?s talk|tell me more|available|send (the )?details)\b/.test(
@@ -524,5 +566,82 @@ export function buildProposal(input: {
   return {
     subject: `${offer.deliveryHours}-hour storefront QA for ${input.companyName}`,
     body: `Hello ${greeting},\n\nI’m responding to your request, “${input.sourceTitle}.” ${proof}\n\nI offer the fixed £${offer.priceGbp} ${offer.productName}: up to ${offer.pageLimit} public pages, ${offer.selectedFindings} reproducible findings with screenshots and fix-ready recommendations, plus ${offer.watchDays} days of checks on ${offer.watchRouteLimit} critical routes. Delivery is within ${offer.deliveryHours} hours. If the delivered pack contains fewer than ${offer.minimumFindings} reproducible, actionable issues within the agreed public scope, you may request a full refund within seven days.\n\nThere is no backend access, retainer, or implementation upsell.${booking}\n\nBest,\n${operatorName}`,
+  };
+}
+
+export function buildInboundConsultantReply(input: {
+  companyName: string;
+  contactName?: string | null;
+  storeUrl?: string | null;
+  latestSubject?: string | null;
+  latestMessage?: string | null;
+  classification?: string | null;
+  alreadyBooked?: boolean;
+  calUrl?: string;
+  operatorName?: string;
+}) {
+  const greeting = input.contactName?.trim() || `${input.companyName} team`;
+  const operatorName = input.operatorName?.trim() || '[OPERATOR NAME]';
+  const subjectText = input.latestSubject?.trim() ?? '';
+  const confirmationSubject = /^Storefront QA confirmation \[/i.test(
+    subjectText,
+  );
+  const subject = confirmationSubject
+    ? `Re: ${subjectText}`
+    : subjectText
+      ? /^(?:re|fwd?):/i.test(subjectText)
+        ? subjectText
+        : `Re: ${subjectText}`
+      : `Storefront QA fit check for ${input.companyName}`;
+  const normalizedMessage = (input.latestMessage ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 700);
+  const context = normalizedMessage
+    ? `\n\nYou wrote: “${normalizedMessage}”`
+    : '';
+  const haystack = `${subjectText} ${normalizedMessage}`.toLowerCase();
+  const directAnswers: string[] = [];
+  if (/\b(price|pricing|cost|how much|budget|invoice)\b/.test(haystack))
+    directAnswers.push(
+      `Price: the sprint is fixed at £${offer.priceGbp} GBP, paid before work begins. I only share the payment link after we confirm fit and scope.`,
+    );
+  if (/\b(when|timeline|turnaround|how long|deadline|deliver)\b/.test(haystack))
+    directAnswers.push(
+      `Timing: delivery is within ${offer.deliveryHours} hours after cleared payment and confirmation of the public routes in scope.`,
+    );
+  if (/\b(scope|include|included|pages|report|findings|audit)\b/.test(haystack))
+    directAnswers.push(
+      `Scope: I crawl up to ${offer.pageLimit} public storefront pages and curate exactly ${offer.selectedFindings} reproducible, fix-ready findings with evidence and recommendations.`,
+    );
+  if (/\b(access|backend|admin|customer data|login)\b/.test(haystack))
+    directAnswers.push(
+      'Access: I do not need a Shopify admin login, customer data, passwords, or backend access; the sprint is limited to the public storefront.',
+    );
+  if (/\b(watch|regression|monitor|after)\b/.test(haystack))
+    directAnswers.push(
+      `Follow-through: the handoff includes ${offer.handoffMinutes} minutes together and a ${offer.watchDays}-day regression watch on up to ${offer.watchRouteLimit} client-approved public routes.`,
+    );
+  if (!directAnswers.length)
+    directAnswers.push(
+      `The fixed sprint covers up to ${offer.pageLimit} public pages, exactly ${offer.selectedFindings} fix-ready findings, a ${offer.handoffMinutes}-minute handoff, and ${offer.watchDays} days of regression checks on up to ${offer.watchRouteLimit} agreed routes.`,
+    );
+  const store = input.storeUrl
+    ? `I’ll use ${input.storeUrl} as the storefront starting point.`
+    : 'Please send the canonical public storefront URL so I can confirm fit.';
+  const classificationNote = input.alreadyBooked
+    ? 'Thanks for the note. I’ll use the fit call already on the calendar to confirm the remaining commercial details.'
+    : input.classification === 'question'
+      ? 'I’ve answered the concrete points I can confirm from the fixed scope below.'
+      : 'Thanks for the clear interest. I want to keep the next step specific and low-friction.';
+  const booking = input.alreadyBooked
+    ? `\n\nThere is no need to book again. I’ll use the scheduled ${offer.handoffMinutes}-minute fit call to confirm the agreed routes, scope boundary, and payment decision.`
+    : input.calUrl
+      ? `\n\nIf those points fit, choose a ${offer.handoffMinutes}-minute fit call here: ${input.calUrl}`
+      : '';
+
+  return {
+    subject,
+    body: `Hello ${greeting},\n\n${classificationNote}${context}\n\n${directAnswers.join('\n\n')}\n\nHow I would proceed:\n1. ${store}\n2. Confirm the change or launch that makes this urgent and the three routes that matter most commercially.\n3. Confirm that the work stays within the fixed public-storefront scope.\n4. Once fit is confirmed, I send the existing payment link and begin only after the £${offer.priceGbp} GBP payment has cleared.\n5. Within ${offer.deliveryHours} hours, you receive the evidence pack; I do not pad it with raw crawler output or unverifiable claims.${booking}\n\nIf you reply by email instead, please include the priority customer journey and any known device, browser, market, or language where the issue appears. That lets me make the fit decision against the real risk rather than give you generic storefront advice.\n\nBest,\n${operatorName}`,
   };
 }

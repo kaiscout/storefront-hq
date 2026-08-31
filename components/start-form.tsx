@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { websiteConfirmationSubject } from '@/lib/intake';
 
 export function StartForm({
   enabled,
@@ -21,6 +22,7 @@ export function StartForm({
   >('idle');
   const [message, setMessage] = useState('');
   const [bookingUrl, setBookingUrl] = useState('');
+  const [intakeId, setIntakeId] = useState('');
 
   async function submit(formData: FormData) {
     setState('submitting');
@@ -44,6 +46,7 @@ export function StartForm({
     });
     const result = (await response.json()) as {
       error?: string;
+      id?: string;
       bookingUrl?: string | null;
     };
     if (!response.ok) {
@@ -51,6 +54,7 @@ export function StartForm({
       setMessage(result.error ?? 'Something went wrong. Please try again.');
       return;
     }
+    setIntakeId(result.id ?? '');
     setBookingUrl(result.bookingUrl ?? '');
     setState('success');
   }
@@ -71,7 +75,7 @@ export function StartForm({
           triggers an automatic email. For the fastest response,{' '}
           <a
             className="font-bold underline underline-offset-4"
-            href={`mailto:${contactEmail}?subject=Storefront%20QA%20fit%20check&body=I%27m%20interested%20in%20the%20Storefront%20QA%20Sprint%20and%20submitted%20my%20public%20storefront%20through%20storefronthq.co.uk.%20Please%20confirm%20the%20next%20steps.`}
+            href={`mailto:${contactEmail}?subject=${encodeURIComponent(websiteConfirmationSubject(intakeId))}&body=${encodeURIComponent("I'm interested in the Storefront QA Sprint and submitted my public storefront through storefronthq.co.uk. Please confirm the next steps.")}`}
           >
             confirm from your work email
           </a>{' '}

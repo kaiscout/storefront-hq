@@ -1,9 +1,11 @@
 import { env } from 'cloudflare:workers';
 
 import { auditPageUpsertSql } from '@/lib/audit-coverage';
+import { calBookingStatus, type CalBookingEventType } from '@/lib/cal';
 import {
   canTransition,
   classifyReply,
+  extractAuthoredReply,
   type LeadRecord,
   type PipelineStatus,
 } from '@/lib/pipeline';
@@ -16,6 +18,7 @@ import {
   unsuccessfulLeadStatuses,
 } from '@/lib/operations';
 import { offer } from '@/lib/offer';
+import { parseWebsiteConfirmationSubject } from '@/lib/intake';
 import { stripeRevenueOutcomeRank } from '@/lib/payments';
 
 const schemaStatements = [
@@ -51,11 +54,15 @@ const schemaStatements = [
     id TEXT PRIMARY KEY,
     lead_id TEXT REFERENCES leads(id) ON DELETE CASCADE,
     external_id TEXT,
+    thread_id TEXT,
     direction TEXT NOT NULL,
     channel TEXT NOT NULL,
     subject TEXT,
     body_excerpt TEXT,
     classification TEXT,
+    reply_claim_token TEXT,
+    reply_claim_until TEXT,
+    replied_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_external_id ON messages(external_id)`,
@@ -171,6 +178,7 @@ const schemaStatements = [
     lead_id TEXT REFERENCES leads(id) ON DELETE SET NULL,
     last_event_id TEXT NOT NULL,
     last_event_type TEXT NOT NULL,
+    last_event_created INTEGER NOT NULL DEFAULT 0,
     starts_at TEXT,
     ends_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -217,6 +225,30 @@ export async function ensureSchema() {
         "ALTER TABLE leads ADD COLUMN contact_permission TEXT NOT NULL DEFAULT 'none'",
       )
       .run();
+  const messageColumns = await database
+    .prepare("PRAGMA table_info('messages')")
+    .all<{ name: string }>();
+  if (!messageColumns.results.some((column) => column.name === 'thread_id'))
+    await database
+      .prepare('ALTER TABLE messages ADD COLUMN thread_id TEXT')
+      .run();
+  const messageAdditions = [
+    [
+      'reply_claim_token',
+      'ALTER TABLE messages ADD COLUMN reply_claim_token TEXT',
+    ],
+    [
+      'reply_claim_until',
+      'ALTER TABLE messages ADD COLUMN reply_claim_until TEXT',
+    ],
+    ['replied_at', 'ALTER TABLE messages ADD COLUMN replied_at TEXT'],
+  ] as const;
+  const existingMessageColumns = new Set(
+    messageColumns.results.map((column) => column.name),
+  );
+  for (const [name, statement] of messageAdditions)
+    if (!existingMessageColumns.has(name))
+      await database.prepare(statement).run();
   await database
     .prepare(
       `UPDATE leads SET contact_permission = CASE
@@ -230,6 +262,19 @@ export async function ensureSchema() {
        WHERE contact_permission = 'none'`,
     )
     .run();
+  const calBookingColumns = await database
+    .prepare("PRAGMA table_info('cal_bookings')")
+    .all<{ name: string }>();
+  if (
+    !calBookingColumns.results.some(
+      (column) => column.name === 'last_event_created',
+    )
+  )
+    await database
+      .prepare(
+        'ALTER TABLE cal_bookings ADD COLUMN last_event_created INTEGER NOT NULL DEFAULT 0',
+      )
+      .run();
   await database
     .prepare(
       `UPDATE leads SET contact_channel = 'unverified-inbound',
@@ -259,22 +304,65 @@ export async function listDraftableDirectEmailLeads(limit = 250) {
   await ensureSchema();
   const result = await d1()
     .prepare(
-      `SELECT leads.* FROM leads
+      `SELECT leads.*,
+         (
+           SELECT messages.subject FROM messages
+           WHERE messages.lead_id = leads.id AND messages.direction = 'inbound'
+           ORDER BY julianday(messages.created_at) DESC, messages.rowid DESC LIMIT 1
+         ) AS latest_message_subject,
+         (
+           SELECT messages.body_excerpt FROM messages
+           WHERE messages.lead_id = leads.id AND messages.direction = 'inbound'
+           ORDER BY julianday(messages.created_at) DESC, messages.rowid DESC LIMIT 1
+         ) AS latest_message_excerpt,
+         (
+           SELECT messages.classification FROM messages
+           WHERE messages.lead_id = leads.id AND messages.direction = 'inbound'
+           ORDER BY julianday(messages.created_at) DESC, messages.rowid DESC LIMIT 1
+         ) AS latest_message_classification,
+         (
+           SELECT messages.external_id FROM messages
+           WHERE messages.lead_id = leads.id AND messages.direction = 'inbound'
+           ORDER BY julianday(messages.created_at) DESC, messages.rowid DESC LIMIT 1
+         ) AS latest_message_external_id,
+         (
+           SELECT messages.thread_id FROM messages
+           WHERE messages.lead_id = leads.id AND messages.direction = 'inbound'
+           ORDER BY julianday(messages.created_at) DESC, messages.rowid DESC LIMIT 1
+         ) AS latest_message_thread_id,
+         (
+           SELECT messages.created_at FROM messages
+           WHERE messages.lead_id = leads.id AND messages.direction = 'inbound'
+           ORDER BY julianday(messages.created_at) DESC, messages.rowid DESC LIMIT 1
+         ) AS latest_message_created_at,
+         EXISTS (
+           SELECT 1 FROM cal_bookings
+           WHERE cal_bookings.lead_id = leads.id
+             AND cal_bookings.status = 'booked'
+             AND cal_bookings.starts_at IS NOT NULL
+             AND julianday(COALESCE(cal_bookings.ends_at, cal_bookings.starts_at)) > julianday('now')
+         ) AS has_active_booking
+       FROM leads
        WHERE (
            (leads.status = 'proposal_ready' AND leads.contact_channel = 'direct-email')
            OR (
-             leads.status = 'replied'
-             AND leads.contact_channel = 'inbound'
-             AND leads.last_contact_at IS NULL
+             leads.status IN ('replied', 'booked')
+             AND leads.contact_channel IN ('inbound', 'direct-email')
+             AND leads.last_reply_at IS NOT NULL
              AND (
-               leads.next_action IS NULL
-               OR leads.next_action = 'Review request and offer a fit call'
+               leads.last_contact_at IS NULL
+               OR julianday(leads.last_reply_at) > julianday(leads.last_contact_at)
              )
            )
          )
          AND leads.explicit_intent = 1
          AND leads.contact_permission IN ('verified-inbound', 'explicit-public-request')
          AND leads.contact_email IS NOT NULL
+         AND COALESCE((
+           SELECT messages.classification FROM messages
+           WHERE messages.lead_id = leads.id AND messages.direction = 'inbound'
+           ORDER BY julianday(messages.created_at) DESC, messages.rowid DESC LIMIT 1
+         ), '') <> 'out_of_office'
          AND NOT EXISTS (
            SELECT 1 FROM suppression
            WHERE lower(suppression.identifier) = lower(leads.contact_email)
@@ -283,7 +371,17 @@ export async function listDraftableDirectEmailLeads(limit = 250) {
        LIMIT ?`,
     )
     .bind(Math.min(limit, 250))
-    .all<LeadRecord>();
+    .all<
+      LeadRecord & {
+        latest_message_subject: string | null;
+        latest_message_excerpt: string | null;
+        latest_message_classification: string | null;
+        latest_message_external_id: string | null;
+        latest_message_thread_id: string | null;
+        latest_message_created_at: string | null;
+        has_active_booking: number;
+      }
+    >();
   return result.results;
 }
 
@@ -315,10 +413,56 @@ export async function getLeadByEmail(email: string) {
     .first<LeadRecord>();
 }
 
+async function resolveGmailMessageLead(
+  database: ReturnType<typeof d1>,
+  email: string,
+  threadId?: string,
+) {
+  if (threadId) {
+    const mapped = await database
+      .prepare(
+        `SELECT leads.* FROM messages
+         INNER JOIN leads ON leads.id = messages.lead_id
+         WHERE messages.thread_id = ? OR messages.external_id = ?
+         GROUP BY leads.id
+         ORDER BY MIN(CASE WHEN messages.thread_id = ? THEN 0 ELSE 1 END)
+         LIMIT 2`,
+      )
+      .bind(threadId, `gmail-thread:${threadId}`, threadId)
+      .all<LeadRecord>();
+    if (mapped.results.length === 1)
+      return mapped.results[0].contact_email?.trim().toLowerCase() === email
+        ? { lead: mapped.results[0], resolution: 'thread' as const }
+        : { lead: null, resolution: 'thread-email-mismatch' as const };
+    if (mapped.results.length > 1)
+      return { lead: null, resolution: 'ambiguous-thread' as const };
+  }
+  const candidates = await database
+    .prepare(
+      `SELECT * FROM leads
+       WHERE lower(contact_email) = ?
+       ORDER BY updated_at DESC
+       LIMIT 2`,
+    )
+    .bind(email)
+    .all<LeadRecord>();
+  if (candidates.results.length === 1)
+    return { lead: candidates.results[0], resolution: 'unique-email' as const };
+  return {
+    lead: null,
+    resolution:
+      candidates.results.length > 1
+        ? ('ambiguous-email' as const)
+        : ('unmatched-email' as const),
+  };
+}
+
 export async function recordCalBookingEvent(input: {
   bookingUid: string;
   eventId: string;
-  eventType: string;
+  eventType: CalBookingEventType;
+  eventCreated: number;
+  rescheduleUid?: string;
   attendeeEmail?: string;
   startsAt?: string;
   endsAt?: string;
@@ -326,18 +470,219 @@ export async function recordCalBookingEvent(input: {
   await ensureSchema();
   const database = d1();
   const attendeeEmail = input.attendeeEmail?.trim().toLowerCase() || null;
-  const status =
-    input.eventType === 'BOOKING_CANCELLED'
-      ? 'cancelled'
-      : ['BOOKING_CREATED', 'BOOKING_RESCHEDULED'].includes(input.eventType)
-        ? 'booked'
-        : 'ignored';
+  const incomingStatus = calBookingStatus(input.eventType);
+  const rescheduledFromUid =
+    input.eventType === 'BOOKING_RESCHEDULED' &&
+    input.rescheduleUid &&
+    input.rescheduleUid !== input.bookingUid
+      ? input.rescheduleUid
+      : null;
+  const rescheduledFromBooking = rescheduledFromUid
+    ? await database
+        .prepare(
+          `SELECT lead_id FROM cal_bookings
+           WHERE booking_uid = ?`,
+        )
+        .bind(rescheduledFromUid)
+        .first<{ lead_id: string | null }>()
+    : null;
+  if (rescheduledFromUid && rescheduledFromBooking?.lead_id) {
+    const targetLineage = await database
+      .prepare('SELECT lead_id FROM cal_bookings WHERE booking_uid = ?')
+      .bind(input.bookingUid)
+      .first<{ lead_id: string | null }>();
+    if (
+      targetLineage?.lead_id &&
+      targetLineage.lead_id !== rescheduledFromBooking.lead_id
+    )
+      throw new Error(
+        `Cal reschedule lineage conflict between ${rescheduledFromUid} and ${input.bookingUid}`,
+      );
+  }
+  let previousBookingUpdated = false;
+  if (rescheduledFromUid) {
+    const previousWrite = await database
+      .prepare(
+        `INSERT INTO cal_bookings (
+           booking_uid, attendee_email, status, lead_id, last_event_id,
+           last_event_type, last_event_created
+         ) VALUES (?, ?, 'rescheduled', ?, ?, 'BOOKING_RESCHEDULED_OUT', ?)
+         ON CONFLICT(booking_uid) DO UPDATE SET
+           attendee_email = COALESCE(cal_bookings.attendee_email, excluded.attendee_email),
+           status = excluded.status,
+           lead_id = COALESCE(cal_bookings.lead_id, excluded.lead_id),
+           last_event_id = excluded.last_event_id,
+           last_event_type = excluded.last_event_type,
+           last_event_created = excluded.last_event_created,
+           updated_at = datetime('now')
+         WHERE excluded.last_event_created > cal_bookings.last_event_created
+            OR (
+              excluded.last_event_created = cal_bookings.last_event_created
+              AND CASE cal_bookings.last_event_type
+                WHEN 'BOOKING_CANCELLED' THEN 4
+                WHEN 'BOOKING_RESCHEDULED_OUT' THEN 3
+                WHEN 'BOOKING_RESCHEDULED' THEN 2
+                ELSE 1
+              END < 3
+            )`,
+      )
+      .bind(
+        rescheduledFromUid,
+        attendeeEmail,
+        rescheduledFromBooking?.lead_id ?? null,
+        input.eventId,
+        input.eventCreated,
+      )
+      .run();
+    previousBookingUpdated = Boolean(previousWrite.meta.changes);
+  }
   const existingBooking = await database
-    .prepare('SELECT lead_id FROM cal_bookings WHERE booking_uid = ?')
+    .prepare(
+      `SELECT lead_id, status, last_event_id, last_event_type, last_event_created
+       FROM cal_bookings WHERE booking_uid = ?`,
+    )
     .bind(input.bookingUid)
-    .first<{ lead_id: string | null }>();
+    .first<{
+      lead_id: string | null;
+      status: string;
+      last_event_id: string;
+      last_event_type: string;
+      last_event_created: number;
+    }>();
 
-  let leadId = existingBooking?.lead_id ?? null;
+  const write = await database
+    .prepare(
+      `INSERT INTO cal_bookings (
+        booking_uid, attendee_email, status, lead_id, last_event_id,
+        last_event_type, last_event_created, starts_at, ends_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(booking_uid) DO UPDATE SET
+        attendee_email = COALESCE(excluded.attendee_email, cal_bookings.attendee_email),
+        status = excluded.status,
+        lead_id = COALESCE(cal_bookings.lead_id, excluded.lead_id),
+        last_event_id = excluded.last_event_id,
+        last_event_type = excluded.last_event_type,
+        last_event_created = excluded.last_event_created,
+        starts_at = COALESCE(excluded.starts_at, cal_bookings.starts_at),
+        ends_at = COALESCE(excluded.ends_at, cal_bookings.ends_at),
+        updated_at = datetime('now')
+      WHERE excluded.last_event_created > cal_bookings.last_event_created
+         OR (
+           excluded.last_event_created = cal_bookings.last_event_created
+           AND CASE excluded.last_event_type
+             WHEN 'BOOKING_CANCELLED' THEN 4
+             WHEN 'BOOKING_RESCHEDULED_OUT' THEN 3
+             WHEN 'BOOKING_RESCHEDULED' THEN 2
+             ELSE 1
+           END > CASE cal_bookings.last_event_type
+             WHEN 'BOOKING_CANCELLED' THEN 4
+             WHEN 'BOOKING_RESCHEDULED_OUT' THEN 3
+             WHEN 'BOOKING_RESCHEDULED' THEN 2
+             ELSE 1
+           END
+         )`,
+    )
+    .bind(
+      input.bookingUid,
+      attendeeEmail,
+      incomingStatus,
+      existingBooking?.lead_id ?? rescheduledFromBooking?.lead_id ?? null,
+      input.eventId,
+      input.eventType,
+      input.eventCreated,
+      input.startsAt ?? null,
+      input.endsAt ?? null,
+    )
+    .run();
+  let recoveryBooking: {
+    status: string;
+    lead_id: string | null;
+    last_event_id: string;
+    last_event_type: string;
+    last_event_created: number;
+  } | null = null;
+  if (!write.meta.changes) {
+    let current = await database
+      .prepare(
+        `SELECT status, lead_id, last_event_id, last_event_type,
+                last_event_created
+         FROM cal_bookings WHERE booking_uid = ?`,
+      )
+      .bind(input.bookingUid)
+      .first<{
+        status: string;
+        lead_id: string | null;
+        last_event_id: string;
+        last_event_type: string;
+        last_event_created: number;
+      }>();
+    if (current && !current.lead_id && rescheduledFromBooking?.lead_id) {
+      const lineage = await database
+        .prepare(
+          `UPDATE cal_bookings SET lead_id = ?, updated_at = datetime('now')
+           WHERE booking_uid = ? AND last_event_id = ? AND lead_id IS NULL`,
+        )
+        .bind(
+          rescheduledFromBooking.lead_id,
+          input.bookingUid,
+          current.last_event_id,
+        )
+        .run();
+      if (lineage.meta.changes)
+        current = { ...current, lead_id: rescheduledFromBooking.lead_id };
+    }
+    if (current?.last_event_id === input.eventId) {
+      recoveryBooking = current;
+    } else {
+      if (current?.lead_id && current.status === 'cancelled')
+        await database
+          .prepare(
+            `UPDATE leads SET
+             status = CASE WHEN status = 'booked' THEN 'replied' ELSE status END,
+             next_action = 'Booking cancelled; decide whether a response is appropriate',
+             updated_at = datetime('now')
+           WHERE id = ? AND status IN ('replied', 'booked')
+             AND EXISTS (
+               SELECT 1 FROM cal_bookings
+               WHERE booking_uid = ? AND last_event_id = ? AND status = 'cancelled'
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM cal_bookings AS other_booking
+               WHERE other_booking.lead_id = leads.id
+                 AND other_booking.status = 'booked'
+                 AND other_booking.booking_uid <> ?
+             )`,
+          )
+          .bind(
+            current.lead_id,
+            input.bookingUid,
+            current.last_event_id,
+            input.bookingUid,
+          )
+          .run();
+      return {
+        bookingUid: input.bookingUid,
+        status: current?.status ?? incomingStatus,
+        leadId: current?.lead_id ?? null,
+        eventId: current?.last_event_id ?? null,
+        eventType: current?.last_event_type ?? null,
+        eventCreated: current?.last_event_created ?? null,
+        applied: false,
+        superseded: true,
+        matchedExistingLead: Boolean(current?.lead_id),
+        createdLead: false,
+        ambiguousMatches: 0,
+        rescheduledFromUid,
+        previousBookingUpdated,
+      };
+    }
+  }
+
+  let leadId =
+    recoveryBooking?.lead_id ??
+    existingBooking?.lead_id ??
+    rescheduledFromBooking?.lead_id ??
+    null;
   let matchedExistingLead = Boolean(leadId);
   let createdLead = false;
   let ambiguousMatches = 0;
@@ -346,7 +691,7 @@ export async function recordCalBookingEvent(input: {
       .prepare(
         `SELECT id FROM leads
          WHERE lower(contact_email) = ?
-           AND status NOT IN ('closed_lost', 'suppressed', 'delivered')
+           AND status IN ('discovered', 'qualified', 'proposal_ready', 'drafted', 'replied', 'booked')
          ORDER BY updated_at DESC
          LIMIT 3`,
       )
@@ -359,7 +704,7 @@ export async function recordCalBookingEvent(input: {
     }
   }
 
-  if (!leadId && attendeeEmail && status === 'booked') {
+  if (!leadId && attendeeEmail && incomingStatus === 'booked') {
     leadId = crypto.randomUUID();
     const emailDomain = attendeeEmail.split('@')[1] || 'calendar prospect';
     const inserted = await database
@@ -368,9 +713,11 @@ export async function recordCalBookingEvent(input: {
           id, company_name, contact_email, contact_channel, contact_permission,
           source_url, source_title, explicit_intent, fit_score, status,
           next_action, booked_at
-        ) VALUES (?, ?, ?, 'cal-booking', 'scheduled-contact', ?,
+        ) SELECT ?, ?, ?, 'cal-booking', 'scheduled-contact', ?,
           'Cal fit-call booking', 1, 100, 'booked',
-          'Review the booking details and run the fit call', datetime('now'))
+          'Review the booking details and run the fit call', datetime('now')
+        FROM cal_bookings
+        WHERE booking_uid = ? AND last_event_id = ? AND status = 'booked'
         ON CONFLICT(source_url) DO NOTHING`,
       )
       .bind(
@@ -378,6 +725,8 @@ export async function recordCalBookingEvent(input: {
         `Calendar prospect (${emailDomain})`,
         attendeeEmail,
         `cal-booking:${input.bookingUid}`,
+        input.bookingUid,
+        input.eventId,
       )
       .run();
     createdLead = Boolean(inserted.meta.changes);
@@ -390,35 +739,73 @@ export async function recordCalBookingEvent(input: {
     }
   }
 
-  await database
-    .prepare(
-      `INSERT INTO cal_bookings (
-        booking_uid, attendee_email, status, lead_id, last_event_id,
-        last_event_type, starts_at, ends_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(booking_uid) DO UPDATE SET
-        attendee_email = COALESCE(excluded.attendee_email, cal_bookings.attendee_email),
-        status = excluded.status,
-        lead_id = COALESCE(excluded.lead_id, cal_bookings.lead_id),
-        last_event_id = excluded.last_event_id,
-        last_event_type = excluded.last_event_type,
-        starts_at = COALESCE(excluded.starts_at, cal_bookings.starts_at),
-        ends_at = COALESCE(excluded.ends_at, cal_bookings.ends_at),
-        updated_at = datetime('now')`,
-    )
-    .bind(
-      input.bookingUid,
-      attendeeEmail,
-      status,
-      leadId,
-      input.eventId,
-      input.eventType,
-      input.startsAt ?? null,
-      input.endsAt ?? null,
-    )
-    .run();
+  if (leadId)
+    await database
+      .prepare(
+        `UPDATE cal_bookings SET lead_id = COALESCE(lead_id, ?)
+         WHERE booking_uid = ? AND last_event_id = ?`,
+      )
+      .bind(leadId, input.bookingUid, input.eventId)
+      .run();
+  if (leadId && rescheduledFromUid)
+    await database
+      .prepare(
+        `UPDATE cal_bookings SET lead_id = COALESCE(lead_id, ?)
+         WHERE booking_uid = ? AND last_event_id = ?
+           AND last_event_type = 'BOOKING_RESCHEDULED_OUT'`,
+      )
+      .bind(leadId, rescheduledFromUid, input.eventId)
+      .run();
 
-  if (leadId && status === 'booked') {
+  const currentBooking = await database
+    .prepare(
+      `SELECT status, lead_id, last_event_id, last_event_type, last_event_created
+       FROM cal_bookings WHERE booking_uid = ?`,
+    )
+    .bind(input.bookingUid)
+    .first<{
+      status: string;
+      lead_id: string | null;
+      last_event_id: string;
+      last_event_type: string;
+      last_event_created: number;
+    }>();
+  if (!currentBooking || currentBooking.last_event_id !== input.eventId) {
+    if (createdLead && leadId) {
+      const rollback = await database
+        .prepare(
+          `DELETE FROM leads
+             WHERE id = ? AND source_url = ?
+               AND NOT EXISTS (
+                 SELECT 1 FROM cal_bookings WHERE cal_bookings.lead_id = leads.id
+               )
+               AND NOT EXISTS (
+                 SELECT 1 FROM messages WHERE messages.lead_id = leads.id
+               )`,
+        )
+        .bind(leadId, `cal-booking:${input.bookingUid}`)
+        .run();
+      if (rollback.meta.changes) createdLead = false;
+    }
+    return {
+      bookingUid: input.bookingUid,
+      status: currentBooking?.status ?? incomingStatus,
+      leadId: currentBooking?.lead_id ?? null,
+      eventId: currentBooking?.last_event_id ?? null,
+      eventType: currentBooking?.last_event_type ?? null,
+      eventCreated: currentBooking?.last_event_created ?? null,
+      applied: false,
+      superseded: true,
+      matchedExistingLead: Boolean(currentBooking?.lead_id),
+      createdLead,
+      ambiguousMatches,
+      rescheduledFromUid,
+      previousBookingUpdated,
+    };
+  }
+
+  leadId = currentBooking.lead_id;
+  if (leadId && incomingStatus === 'booked') {
     await database
       .prepare(
         `UPDATE leads SET
@@ -440,25 +827,67 @@ export async function recordCalBookingEvent(input: {
             ELSE next_action
           END,
           updated_at = datetime('now')
-         WHERE id = ?`,
+          WHERE id = ?
+            AND EXISTS (
+              SELECT 1 FROM cal_bookings
+              WHERE booking_uid = ? AND last_event_id = ? AND status = 'booked'
+            )`,
       )
-      .bind(leadId)
+      .bind(leadId, input.bookingUid, input.eventId)
       .run();
-  } else if (leadId && status === 'cancelled') {
-    await setLeadNextAction(
-      leadId,
-      'Booking cancelled; decide whether a response is appropriate',
-      ['replied', 'booked'],
-    );
+  } else if (leadId && incomingStatus === 'cancelled') {
+    await database
+      .prepare(
+        `UPDATE leads SET
+           status = CASE WHEN status = 'booked' THEN 'replied' ELSE status END,
+           next_action = 'Booking cancelled; decide whether a response is appropriate',
+           updated_at = datetime('now')
+         WHERE id = ? AND status IN ('replied', 'booked')
+           AND EXISTS (
+             SELECT 1 FROM cal_bookings
+             WHERE booking_uid = ? AND last_event_id = ? AND status = 'cancelled'
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM cal_bookings AS other_booking
+             WHERE other_booking.lead_id = leads.id
+               AND other_booking.status = 'booked'
+               AND other_booking.booking_uid <> ?
+           )`,
+      )
+      .bind(leadId, input.bookingUid, input.eventId, input.bookingUid)
+      .run();
   }
+
+  const finalBooking = await database
+    .prepare(
+      `SELECT status, lead_id, last_event_id, last_event_type, last_event_created
+       FROM cal_bookings WHERE booking_uid = ?`,
+    )
+    .bind(input.bookingUid)
+    .first<{
+      status: string;
+      lead_id: string | null;
+      last_event_id: string;
+      last_event_type: string;
+      last_event_created: number;
+    }>();
+  const stillCurrent = finalBooking?.last_event_id === input.eventId;
 
   return {
     bookingUid: input.bookingUid,
-    status,
-    leadId,
+    status: finalBooking?.status ?? currentBooking.status,
+    leadId: finalBooking?.lead_id ?? leadId,
+    eventId: finalBooking?.last_event_id ?? currentBooking.last_event_id,
+    eventType: finalBooking?.last_event_type ?? currentBooking.last_event_type,
+    eventCreated:
+      finalBooking?.last_event_created ?? currentBooking.last_event_created,
+    applied: stillCurrent,
+    superseded: !stillCurrent,
     matchedExistingLead,
     createdLead,
     ambiguousMatches,
+    rescheduledFromUid,
+    previousBookingUpdated,
   };
 }
 
@@ -561,6 +990,195 @@ export async function createInboundLead(input: {
     .first<{ id: string }>();
   if (!stored) throw new Error('Inbound request could not be stored');
   return stored.id;
+}
+
+export async function confirmWebsiteIntakeFromGmail(input: {
+  externalId: string;
+  threadId?: string;
+  from: string;
+  subject: string;
+  body: string;
+  receivedAt?: string;
+}) {
+  await ensureSchema();
+  const receivedAt = new Date(input.receivedAt ?? Date.now());
+  if (!Number.isFinite(receivedAt.getTime()))
+    throw new Error('Invalid Gmail received time');
+  const receivedAtIso = receivedAt.toISOString();
+  const leadId = parseWebsiteConfirmationSubject(input.subject);
+  if (!leadId)
+    return { accepted: false, leadId: null, reason: 'invalid-subject' };
+  const database = d1();
+  const sender = input.from.trim().toLowerCase();
+  const authoredBody = extractAuthoredReply(input.body);
+  const classification = classifyReply(authoredBody);
+  if (classification === 'unsubscribe') {
+    await database
+      .prepare(
+        `INSERT OR IGNORE INTO suppression (id, identifier, reason)
+         VALUES (?, ?, 'recipient objection')`,
+      )
+      .bind(crypto.randomUUID(), sender)
+      .run();
+    await database
+      .prepare(
+        `UPDATE leads SET
+           status = CASE
+             WHEN status IN ('discovered', 'qualified', 'proposal_ready', 'drafted', 'replied', 'booked')
+               THEN 'suppressed'
+             ELSE status
+           END,
+           next_action = CASE
+             WHEN status IN ('discovered', 'qualified', 'proposal_ready', 'drafted', 'replied', 'booked')
+               THEN 'Reply classified: unsubscribe'
+             WHEN status IN ('paid', 'fulfilling', 'delivered')
+               THEN 'Marketing suppression recorded; active delivery stage preserved'
+             ELSE next_action
+           END,
+           updated_at = datetime('now')
+         WHERE lower(contact_email) = ?`,
+      )
+      .bind(sender)
+      .run();
+    await database
+      .prepare(
+        `UPDATE messages SET
+           reply_claim_token = NULL,
+           reply_claim_until = NULL
+         WHERE replied_at IS NULL
+           AND lead_id IN (
+             SELECT id FROM leads WHERE lower(contact_email) = ?
+           )`,
+      )
+      .bind(sender)
+      .run();
+    return {
+      accepted: false,
+      leadId: null,
+      reason: 'unsubscribe',
+      suppressed: true,
+    };
+  }
+  if (classification === 'out_of_office' || classification === 'not_interested')
+    return {
+      accepted: false,
+      leadId: null,
+      reason: `contradictory-${classification}`,
+    };
+  const existingMessage = await database
+    .prepare('SELECT lead_id FROM messages WHERE external_id = ? LIMIT 1')
+    .bind(input.externalId)
+    .first<{ lead_id: string | null }>();
+  if (existingMessage && existingMessage.lead_id !== leadId)
+    return { accepted: false, leadId: null, reason: 'message-id-conflict' };
+
+  const lead = await database
+    .prepare(
+      `SELECT id, contact_channel, contact_permission FROM leads
+       WHERE id = ?
+         AND source_title = 'Website availability request'
+         AND lower(contact_email) = ?
+       LIMIT 1`,
+    )
+    .bind(leadId, sender)
+    .first<{
+      id: string;
+      contact_channel: string;
+      contact_permission: string;
+    }>();
+  if (!lead)
+    return { accepted: false, leadId: null, reason: 'intake-not-eligible' };
+
+  const alreadyVerified =
+    lead.contact_channel === 'inbound' &&
+    lead.contact_permission === 'verified-inbound';
+  if (!alreadyVerified) {
+    if (
+      lead.contact_channel !== 'unverified-inbound' ||
+      lead.contact_permission !== 'unverified-intake'
+    )
+      return { accepted: false, leadId: null, reason: 'intake-not-eligible' };
+    const promoted = await database
+      .prepare(
+        `UPDATE leads SET
+           contact_channel = 'inbound',
+           contact_permission = 'verified-inbound',
+           explicit_intent = 1,
+           status = 'replied',
+           next_action = 'Review the consented request and prepare a tailored response',
+           last_reply_at = ?,
+           updated_at = datetime('now')
+         WHERE id = ?
+           AND source_title = 'Website availability request'
+           AND contact_channel = 'unverified-inbound'
+           AND contact_permission = 'unverified-intake'
+           AND lower(contact_email) = ?`,
+      )
+      .bind(receivedAtIso, leadId, sender)
+      .run();
+    if (!promoted.meta.changes)
+      return { accepted: false, leadId: null, reason: 'intake-changed' };
+  }
+
+  const inserted = await database
+    .prepare(
+      `INSERT OR IGNORE INTO messages (
+         id, lead_id, external_id, thread_id, direction, channel, subject,
+         body_excerpt, classification, created_at
+       ) VALUES (?, ?, ?, ?, 'inbound', 'gmail', ?, ?, 'website_confirmation', ?)`,
+    )
+    .bind(
+      crypto.randomUUID(),
+      leadId,
+      input.externalId,
+      input.threadId ?? null,
+      input.subject,
+      authoredBody.slice(0, 2000),
+      receivedAtIso,
+    )
+    .run();
+  if (!inserted.meta.changes) {
+    const stored = await database
+      .prepare('SELECT lead_id FROM messages WHERE external_id = ? LIMIT 1')
+      .bind(input.externalId)
+      .first<{ lead_id: string | null }>();
+    if (stored?.lead_id !== leadId)
+      throw new Error('Gmail confirmation message identity conflicted');
+  }
+  let stale = false;
+  if (alreadyVerified) {
+    const refreshed = await database
+      .prepare(
+        `UPDATE leads SET
+           explicit_intent = 1,
+           status = CASE WHEN status = 'closed_lost' THEN 'replied' ELSE status END,
+           next_action = CASE
+             WHEN status = 'suppressed'
+               THEN '[Consent review] New explicit request from a suppressed address; human review required'
+             WHEN status IN ('paid', 'fulfilling', 'delivered')
+               THEN '[Inbound] New explicit request received; confirm whether this is current-work support or a new sprint'
+             WHEN status = 'booked'
+               THEN '[Inbound] New confirmation received; review before the scheduled fit call'
+             ELSE 'Review the consented repeat request and prepare a tailored response'
+           END,
+           last_reply_at = ?,
+           updated_at = datetime('now')
+         WHERE id = ?
+           AND (
+             last_reply_at IS NULL
+             OR julianday(last_reply_at) < julianday(?)
+           )`,
+      )
+      .bind(receivedAtIso, leadId, receivedAtIso)
+      .run();
+    stale = !refreshed.meta.changes;
+  }
+  return {
+    accepted: true,
+    leadId,
+    duplicate: !inserted.meta.changes,
+    stale,
+  };
 }
 
 export async function consumePublicIntakeAttempt(
@@ -876,58 +1494,174 @@ export async function markQualified(input: {
 
 export async function recordMessage(input: {
   externalId: string;
+  threadId?: string;
   from: string;
   subject?: string;
   body: string;
+  receivedAt?: string;
 }) {
   await ensureSchema();
+  const receivedAt = new Date(input.receivedAt ?? Date.now());
+  if (!Number.isFinite(receivedAt.getTime()))
+    throw new Error('Invalid Gmail received time');
+  const receivedAtIso = receivedAt.toISOString();
   const email = input.from.trim().toLowerCase();
-  let lead = await getLeadByEmail(email);
-  const classification = classifyReply(`${input.subject ?? ''}\n${input.body}`);
-  const verifiesWebsiteRequest =
-    lead?.contact_channel === 'unverified-inbound' &&
-    classification !== 'out_of_office';
-  const inserted = await d1()
+  const database = d1();
+  const leadResolution = await resolveGmailMessageLead(
+    database,
+    email,
+    input.threadId,
+  );
+  const lead = leadResolution.lead;
+  const authoredBody = extractAuthoredReply(input.body);
+  const classification = classifyReply(authoredBody);
+  let suppressedLeads = 0;
+  if (classification === 'unsubscribe') {
+    await database
+      .prepare(
+        `INSERT OR IGNORE INTO suppression (id, identifier, reason)
+         VALUES (?, ?, 'recipient objection')`,
+      )
+      .bind(crypto.randomUUID(), email)
+      .run();
+    const suppressed = await database
+      .prepare(
+        `UPDATE leads SET
+           status = CASE
+             WHEN status IN ('discovered', 'qualified', 'proposal_ready', 'drafted', 'replied', 'booked')
+               THEN 'suppressed'
+             ELSE status
+           END,
+           next_action = CASE
+             WHEN status IN ('discovered', 'qualified', 'proposal_ready', 'drafted', 'replied', 'booked')
+               THEN 'Reply classified: unsubscribe'
+             WHEN status IN ('paid', 'fulfilling', 'delivered')
+               THEN 'Marketing suppression recorded; active delivery stage preserved'
+             ELSE next_action
+           END,
+           last_reply_at = CASE
+             WHEN last_reply_at IS NULL OR julianday(last_reply_at) < julianday(?)
+               THEN ?
+             ELSE last_reply_at
+           END,
+           updated_at = datetime('now')
+         WHERE lower(contact_email) = ?`,
+      )
+      .bind(receivedAtIso, receivedAtIso, email)
+      .run();
+    suppressedLeads = Number(suppressed.meta.changes ?? 0);
+    await database
+      .prepare(
+        `UPDATE messages SET
+           reply_claim_token = NULL,
+           reply_claim_until = NULL
+         WHERE replied_at IS NULL
+           AND lead_id IN (
+             SELECT id FROM leads WHERE lower(contact_email) = ?
+           )`,
+      )
+      .bind(email)
+      .run();
+  }
+  if (!lead)
+    return {
+      leadId: null,
+      classification,
+      ignored: true,
+      resolution: leadResolution.resolution,
+      suppressed: classification === 'unsubscribe',
+      suppressedLeads,
+    };
+  const inserted = await database
     .prepare(
       `INSERT OR IGNORE INTO messages (
-        id, lead_id, external_id, direction, channel, subject, body_excerpt, classification
-      ) VALUES (?, ?, ?, 'inbound', 'gmail', ?, ?, ?)`,
+        id, lead_id, external_id, thread_id, direction, channel, subject,
+        body_excerpt, classification, created_at
+      ) VALUES (?, ?, ?, ?, 'inbound', 'gmail', ?, ?, ?, ?)`,
     )
     .bind(
       crypto.randomUUID(),
       lead?.id ?? null,
       input.externalId,
+      input.threadId ?? null,
       input.subject?.slice(0, 300) ?? null,
-      input.body.slice(0, 2000),
+      authoredBody.slice(0, 2000),
       classification,
+      receivedAtIso,
     )
     .run();
-
-  if (!inserted.meta.changes)
-    return { leadId: lead?.id ?? null, classification, duplicate: true };
-
-  if (lead && verifiesWebsiteRequest) {
-    await d1()
+  const duplicate = !inserted.meta.changes;
+  if (duplicate) {
+    const stored = await database
       .prepare(
-        `UPDATE leads SET contact_channel = 'inbound',
-         contact_permission = 'verified-inbound', explicit_intent = 1,
-         status = 'replied', next_action = ?, last_reply_at = datetime('now'),
-         updated_at = datetime('now')
-         WHERE id = ? AND contact_channel = 'unverified-inbound'`,
+        `SELECT lead_id, classification FROM messages
+         WHERE external_id = ? LIMIT 1`,
       )
-      .bind(`Reply classified: ${classification}`, lead.id)
-      .run();
-    lead = await getLead(lead.id);
+      .bind(input.externalId)
+      .first<{ lead_id: string | null; classification: string | null }>();
+    if (
+      !stored ||
+      stored.lead_id !== lead.id ||
+      stored.classification !== classification
+    )
+      return {
+        leadId: null,
+        classification,
+        duplicate: true,
+        ignored: true,
+        resolution: 'message-id-conflict',
+      };
+    if (input.threadId)
+      await database
+        .prepare(
+          `UPDATE messages SET thread_id = COALESCE(thread_id, ?)
+           WHERE external_id = ? AND lead_id = ?`,
+        )
+        .bind(input.threadId, input.externalId, lead.id)
+        .run();
   }
 
-  if (classification === 'unsubscribe') {
-    await d1()
+  if (lead) {
+    const latest = await database
       .prepare(
-        `INSERT OR IGNORE INTO suppression (id, identifier, reason) VALUES (?, ?, 'recipient objection')`,
+        `SELECT external_id FROM messages
+         WHERE lead_id = ? AND direction = 'inbound'
+         ORDER BY julianday(created_at) DESC, rowid DESC
+         LIMIT 1`,
       )
-      .bind(crypto.randomUUID(), email)
-      .run();
+      .bind(lead.id)
+      .first<{ external_id: string | null }>();
+    const stale = latest?.external_id !== input.externalId;
+    if (classification === 'unsubscribe') {
+      return {
+        leadId: lead.id,
+        classification,
+        duplicate,
+        stale,
+        suppressed: true,
+        suppressedLeads,
+      };
+    }
+    if (stale)
+      return {
+        leadId: lead.id,
+        classification,
+        duplicate,
+        stale: true,
+      };
+    if (
+      lead.contact_channel === 'unverified-inbound' ||
+      lead.contact_permission === 'unverified-intake'
+    )
+      return {
+        leadId: lead.id,
+        classification,
+        duplicate,
+        ignored: true,
+        resolution: 'exact-confirmation-required',
+      };
   }
+
   if (lead) {
     const beforePayment = forwardPipeline.slice(
       0,
@@ -937,39 +1671,314 @@ export async function recordMessage(input: {
       classification === 'ambiguous'
         ? 'Human review required'
         : `Reply classified: ${classification}`;
+    const bookedReplyNextAction =
+      classification === 'ambiguous'
+        ? 'Human review required; keep the scheduled fit call and payment decision active'
+        : `Reply classified: ${classification}; keep the scheduled fit call and payment decision active`;
     if (
-      (classification === 'unsubscribe' ||
-        classification === 'not_interested') &&
+      classification === 'not_interested' &&
       beforePayment.includes(lead.status)
     ) {
-      await transitionLead(
-        lead.id,
-        classification === 'unsubscribe' ? 'suppressed' : 'closed_lost',
-        { nextAction },
-      );
+      await transitionLead(lead.id, 'closed_lost', { nextAction });
+    } else if (
+      lead.status === 'closed_lost' &&
+      ['interested', 'question', 'website_confirmation'].includes(
+        classification,
+      )
+    ) {
+      await database
+        .prepare(
+          `UPDATE leads SET status = 'replied', next_action = ?,
+             last_reply_at = ?, updated_at = datetime('now')
+           WHERE id = ? AND status = 'closed_lost'
+             AND contact_permission IN ('verified-inbound', 'explicit-public-request')
+             AND explicit_intent = 1
+             AND NOT EXISTS (
+               SELECT 1 FROM suppression
+               WHERE lower(suppression.identifier) = lower(leads.contact_email)
+             )`,
+        )
+        .bind(nextAction, receivedAtIso, lead.id)
+        .run();
+    } else if (lead.status === 'closed_lost' && classification === 'booked') {
+      await database
+        .prepare(
+          `UPDATE leads SET status = 'booked', next_action = ?,
+             booked_at = COALESCE(booked_at, datetime('now')),
+             last_reply_at = ?, updated_at = datetime('now')
+           WHERE id = ? AND status = 'closed_lost'
+             AND contact_permission IN ('verified-inbound', 'explicit-public-request')
+             AND explicit_intent = 1
+             AND NOT EXISTS (
+               SELECT 1 FROM suppression
+               WHERE lower(suppression.identifier) = lower(leads.contact_email)
+             )`,
+        )
+        .bind(nextAction, receivedAtIso, lead.id)
+        .run();
     } else if (classification === 'booked') {
-      await advanceLead(lead.id, 'booked', nextAction);
+      const advanced = await advanceLead(lead.id, 'booked', nextAction);
+      if (!advanced.advanced && lead.status === 'booked')
+        await setLeadNextAction(lead.id, bookedReplyNextAction, ['booked']);
     } else if (classification === 'out_of_office') {
       await setLeadNextAction(lead.id, nextAction, beforePayment);
-    } else if (verifiesWebsiteRequest) {
-      await setLeadNextAction(lead.id, nextAction, ['replied']);
-    } else if (
-      classification !== 'unsubscribe' &&
-      classification !== 'not_interested'
-    ) {
+    } else if (lead.status === 'booked') {
+      await setLeadNextAction(lead.id, bookedReplyNextAction, ['booked']);
+    } else if (classification !== 'not_interested') {
       await advanceLead(lead.id, 'replied', nextAction);
-    } else if (classification === 'unsubscribe') {
-      await setLeadNextAction(
-        lead.id,
-        'Marketing suppression recorded; active delivery stage preserved',
-      );
     }
-    await d1()
-      .prepare("UPDATE leads SET last_reply_at = datetime('now') WHERE id = ?")
-      .bind(lead.id)
+    await database
+      .prepare(
+        `UPDATE leads SET last_reply_at = ?
+         WHERE id = ? AND (
+           last_reply_at IS NULL OR julianday(last_reply_at) < julianday(?)
+         )`,
+      )
+      .bind(receivedAtIso, lead.id, receivedAtIso)
       .run();
   }
-  return { leadId: lead?.id ?? null, classification };
+  return { leadId: lead?.id ?? null, classification, duplicate };
+}
+
+export async function claimCurrentGmailReply(input: {
+  leadId: string;
+  sourceMessageId: string;
+}) {
+  await ensureSchema();
+  const database = d1();
+  const claimToken = crypto.randomUUID();
+  const claimed = await database
+    .prepare(
+      `UPDATE messages SET
+         reply_claim_token = ?,
+         reply_claim_until = datetime('now', '+5 minutes')
+       WHERE lead_id = ?
+         AND external_id = ?
+         AND direction = 'inbound'
+         AND thread_id IS NOT NULL
+         AND classification IN ('interested', 'question', 'booked', 'website_confirmation')
+         AND julianday(created_at) >= julianday('now', '-72 hours')
+         AND replied_at IS NULL
+         AND (
+           reply_claim_until IS NULL
+           OR julianday(reply_claim_until) <= julianday('now')
+         )
+         AND rowid = (
+           SELECT latest.rowid FROM messages AS latest
+           WHERE latest.lead_id = messages.lead_id
+             AND latest.direction = 'inbound'
+           ORDER BY julianday(latest.created_at) DESC, latest.rowid DESC
+           LIMIT 1
+         )
+         AND EXISTS (
+           SELECT 1 FROM leads
+           WHERE leads.id = messages.lead_id
+             AND leads.status IN ('replied', 'booked')
+             AND leads.contact_channel IN ('inbound', 'direct-email')
+             AND leads.contact_permission IN ('verified-inbound', 'explicit-public-request')
+             AND leads.explicit_intent = 1
+             AND leads.last_reply_at IS NOT NULL
+             AND (
+               leads.last_contact_at IS NULL
+               OR julianday(leads.last_reply_at) > julianday(leads.last_contact_at)
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM suppression
+               WHERE lower(suppression.identifier) = lower(leads.contact_email)
+             )
+         )`,
+    )
+    .bind(claimToken, input.leadId, input.sourceMessageId)
+    .run();
+  if (!claimed.meta.changes) return null;
+  const stored = await database
+    .prepare(
+      `SELECT thread_id FROM messages
+       WHERE lead_id = ? AND external_id = ? AND reply_claim_token = ?
+       LIMIT 1`,
+    )
+    .bind(input.leadId, input.sourceMessageId, claimToken)
+    .first<{ thread_id: string | null }>();
+  if (!stored?.thread_id) throw new Error('Claimed Gmail reply has no thread');
+  return {
+    leadId: input.leadId,
+    sourceMessageId: input.sourceMessageId,
+    sourceThreadId: stored.thread_id,
+    claimToken,
+  };
+}
+
+export async function validateCurrentGmailReplyClaim(input: {
+  leadId: string;
+  sourceMessageId: string;
+  claimToken: string;
+}) {
+  await ensureSchema();
+  const valid = await d1()
+    .prepare(
+      `SELECT messages.thread_id FROM messages
+       INNER JOIN leads ON leads.id = messages.lead_id
+       WHERE messages.lead_id = ?
+         AND messages.external_id = ?
+         AND messages.reply_claim_token = ?
+         AND messages.direction = 'inbound'
+         AND messages.thread_id IS NOT NULL
+         AND messages.classification IN ('interested', 'question', 'booked', 'website_confirmation')
+         AND messages.replied_at IS NULL
+         AND julianday(messages.reply_claim_until) > julianday('now')
+         AND messages.rowid = (
+           SELECT latest.rowid FROM messages AS latest
+           WHERE latest.lead_id = messages.lead_id
+             AND latest.direction = 'inbound'
+           ORDER BY julianday(latest.created_at) DESC, latest.rowid DESC
+           LIMIT 1
+         )
+         AND leads.status IN ('replied', 'booked')
+         AND leads.contact_channel IN ('inbound', 'direct-email')
+         AND leads.contact_permission IN ('verified-inbound', 'explicit-public-request')
+         AND leads.explicit_intent = 1
+         AND leads.last_reply_at IS NOT NULL
+         AND (
+           leads.last_contact_at IS NULL
+           OR julianday(leads.last_reply_at) > julianday(leads.last_contact_at)
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM suppression
+           WHERE lower(suppression.identifier) = lower(leads.contact_email)
+         )
+       LIMIT 1`,
+    )
+    .bind(input.leadId, input.sourceMessageId, input.claimToken)
+    .first<{ thread_id: string }>();
+  return valid
+    ? {
+        leadId: input.leadId,
+        sourceMessageId: input.sourceMessageId,
+        sourceThreadId: valid.thread_id,
+        claimToken: input.claimToken,
+      }
+    : null;
+}
+
+export async function releaseGmailReplyClaim(input: {
+  leadId: string;
+  sourceMessageId: string;
+  claimToken: string;
+}) {
+  await ensureSchema();
+  const released = await d1()
+    .prepare(
+      `UPDATE messages SET reply_claim_token = NULL, reply_claim_until = NULL
+       WHERE lead_id = ? AND external_id = ? AND reply_claim_token = ?
+         AND replied_at IS NULL`,
+    )
+    .bind(input.leadId, input.sourceMessageId, input.claimToken)
+    .run();
+  return Boolean(released.meta.changes);
+}
+
+export async function recordGmailDraftThreadLink(input: {
+  leadId: string;
+  threadId: string;
+  draftId: string;
+}) {
+  await ensureSchema();
+  const lead = await getLead(input.leadId);
+  if (!lead) throw new Error('Lead not found');
+  if (
+    !['direct-email', 'inbound'].includes(lead.contact_channel) ||
+    !['verified-inbound', 'explicit-public-request'].includes(
+      lead.contact_permission,
+    ) ||
+    !['proposal_ready', 'drafted', 'replied', 'booked'].includes(lead.status)
+  )
+    throw new Error('Only an eligible consented Gmail lead can link a draft');
+  const database = d1();
+  const conflict = await database
+    .prepare(
+      `SELECT lead_id FROM messages
+       WHERE thread_id = ? AND lead_id IS NOT NULL AND lead_id <> ?
+       LIMIT 1`,
+    )
+    .bind(input.threadId, input.leadId)
+    .first<{ lead_id: string }>();
+  if (conflict) throw new Error('Gmail draft thread is linked to another lead');
+  const externalId = `gmail-draft:${input.draftId}`;
+  const inserted = await database
+    .prepare(
+      `INSERT OR IGNORE INTO messages (
+         id, lead_id, external_id, thread_id, direction, channel,
+         classification, created_at
+       ) VALUES (?, ?, ?, ?, 'draft', 'gmail', 'pending-draft', datetime('now'))`,
+    )
+    .bind(crypto.randomUUID(), input.leadId, externalId, input.threadId)
+    .run();
+  if (!inserted.meta.changes) {
+    const stored = await database
+      .prepare(
+        `SELECT lead_id, thread_id FROM messages
+         WHERE external_id = ? LIMIT 1`,
+      )
+      .bind(externalId)
+      .first<{ lead_id: string | null; thread_id: string | null }>();
+    if (
+      !stored ||
+      stored.lead_id !== input.leadId ||
+      stored.thread_id !== input.threadId
+    )
+      throw new Error('Gmail draft identity conflicted');
+  }
+  return {
+    leadId: input.leadId,
+    threadId: input.threadId,
+    draftId: input.draftId,
+    recorded: Boolean(inserted.meta.changes),
+  };
+}
+
+export async function listInvalidGmailDraftLeadIds(leadIds: string[]) {
+  await ensureSchema();
+  const uniqueIds = [...new Set(leadIds)].slice(0, 250);
+  if (!uniqueIds.length) return [];
+  const placeholders = uniqueIds.map(() => '?').join(', ');
+  const eligible = await d1()
+    .prepare(
+      `SELECT leads.id FROM leads
+       WHERE leads.id IN (${placeholders})
+         AND leads.explicit_intent = 1
+         AND leads.contact_email IS NOT NULL
+         AND leads.contact_permission IN ('verified-inbound', 'explicit-public-request')
+         AND NOT EXISTS (
+           SELECT 1 FROM suppression
+           WHERE lower(suppression.identifier) = lower(leads.contact_email)
+         )
+         AND (
+           (
+             leads.status IN ('proposal_ready', 'drafted')
+             AND leads.contact_channel = 'direct-email'
+           )
+           OR (
+             leads.status IN ('replied', 'booked')
+             AND leads.contact_channel IN ('inbound', 'direct-email')
+             AND leads.last_reply_at IS NOT NULL
+             AND (
+               leads.last_contact_at IS NULL
+               OR julianday(leads.last_reply_at) > julianday(leads.last_contact_at)
+             )
+             AND COALESCE((
+               SELECT messages.classification FROM messages
+               WHERE messages.lead_id = leads.id
+                 AND messages.direction = 'inbound'
+               ORDER BY julianday(messages.created_at) DESC, messages.rowid DESC
+               LIMIT 1
+             ), '') <> 'out_of_office'
+           )
+         )`,
+    )
+    .bind(...uniqueIds)
+    .all<{ id: string }>();
+  const eligibleIds = new Set(eligible.results.map((row) => row.id));
+  return uniqueIds.filter((id) => !eligibleIds.has(id));
 }
 
 export async function recordOutboundContact(input: {
@@ -978,6 +1987,8 @@ export async function recordOutboundContact(input: {
   sentMessageId: string;
   sentAt: string;
   subject?: string;
+  sourceMessageId?: string;
+  claimToken?: string;
 }) {
   await ensureSchema();
   const lead = await getLead(input.leadId);
@@ -992,63 +2003,132 @@ export async function recordOutboundContact(input: {
   const sentAt = new Date(input.sentAt);
   if (!Number.isFinite(sentAt.getTime())) throw new Error('Invalid sent time');
   const sentAtIso = sentAt.toISOString();
-  const externalId = `gmail-thread:${input.threadId}`;
+  if (Boolean(input.sourceMessageId) !== Boolean(input.claimToken))
+    throw new Error('Gmail reply claim identity is incomplete');
+  if (input.sourceMessageId && input.claimToken) {
+    const claim = await d1()
+      .prepare(
+        `SELECT lead_id, reply_claim_token, replied_at FROM messages
+         WHERE external_id = ? LIMIT 1`,
+      )
+      .bind(input.sourceMessageId)
+      .first<{
+        lead_id: string | null;
+        reply_claim_token: string | null;
+        replied_at: string | null;
+      }>();
+    if (
+      !claim ||
+      claim.lead_id !== input.leadId ||
+      (!claim.replied_at && claim.reply_claim_token !== input.claimToken)
+    )
+      throw new Error('Gmail reply claim is no longer valid');
+  }
+  const externalId = `gmail-sent:${input.sentMessageId}`;
   const inserted = await d1()
     .prepare(
       `INSERT OR IGNORE INTO messages (
-        id, lead_id, external_id, direction, channel, subject, classification, created_at
-      ) VALUES (?, ?, ?, 'outbound', 'gmail', ?, ?, datetime(?))`,
+        id, lead_id, external_id, thread_id, direction, channel, subject,
+        classification, created_at
+      ) VALUES (?, ?, ?, ?, 'outbound', 'gmail', ?, ?, ?)`,
     )
     .bind(
       crypto.randomUUID(),
       input.leadId,
       externalId,
+      input.threadId,
       input.subject?.slice(0, 300) ?? null,
       `sent:${input.sentMessageId}`,
       sentAtIso,
     )
     .run();
+  if (!inserted.meta.changes) {
+    const stored = await d1()
+      .prepare(
+        `SELECT lead_id, thread_id, classification FROM messages
+         WHERE external_id = ? LIMIT 1`,
+      )
+      .bind(externalId)
+      .first<{
+        lead_id: string | null;
+        thread_id: string | null;
+        classification: string | null;
+      }>();
+    if (
+      !stored ||
+      stored.lead_id !== input.leadId ||
+      stored.thread_id !== input.threadId ||
+      stored.classification !== `sent:${input.sentMessageId}`
+    )
+      throw new Error('Gmail sent-message identity conflicted');
+  }
   const awaitReply =
     '[Outbound] Await reply; follow up only within the permitted channel rules';
+  const bookedAwaitReply =
+    'Run the scheduled fit call and send the payment link after scope is confirmed; [Outbound] await a new reply';
   await d1()
     .prepare(
       `UPDATE leads SET
          last_contact_at = CASE
-           WHEN last_contact_at IS NULL OR datetime(last_contact_at) < datetime(?)
-             THEN datetime(?)
+           WHEN last_contact_at IS NULL OR julianday(last_contact_at) < julianday(?)
+             THEN ?
            ELSE last_contact_at
          END,
          next_action = CASE
-           WHEN status IN ('drafted', 'replied')
+           WHEN status IN ('drafted', 'replied', 'booked')
              AND (
                next_action IS NULL OR trim(next_action) = ''
                OR next_action = 'Review the Gmail draft and send only if channel rules allow'
                OR next_action = 'Review the consented inbound reply draft before sending'
+               OR next_action = 'Review the consented inbound reply draft before sending; keep the scheduled fit call and payment decision active'
                OR next_action = 'Review request and offer a fit call'
+               OR next_action = 'Run the scheduled fit call and send the payment link after scope is confirmed; [Outbound] await a new reply'
                OR next_action LIKE '[Outbound] %'
              )
-             THEN ?
+             THEN CASE WHEN status = 'booked' THEN ? ELSE ? END
            ELSE next_action
          END,
          updated_at = datetime('now')
        WHERE id = ? AND contact_channel IN ('direct-email', 'inbound')
          AND (
-           last_contact_at IS NULL OR datetime(last_contact_at) < datetime(?)
+           last_contact_at IS NULL OR julianday(last_contact_at) < julianday(?)
            OR (
-             status IN ('drafted', 'replied')
+             status IN ('drafted', 'replied', 'booked')
              AND COALESCE(next_action, '') <> ?
              AND (
                next_action IS NULL OR trim(next_action) = ''
                OR next_action = 'Review the Gmail draft and send only if channel rules allow'
                OR next_action = 'Review the consented inbound reply draft before sending'
+               OR next_action = 'Review the consented inbound reply draft before sending; keep the scheduled fit call and payment decision active'
                OR next_action = 'Review request and offer a fit call'
+               OR next_action = 'Run the scheduled fit call and send the payment link after scope is confirmed; [Outbound] await a new reply'
                OR next_action LIKE '[Outbound] %'
              )
            )
          )`,
     )
-    .bind(sentAtIso, sentAtIso, awaitReply, input.leadId, sentAtIso, awaitReply)
+    .bind(
+      sentAtIso,
+      sentAtIso,
+      bookedAwaitReply,
+      awaitReply,
+      input.leadId,
+      sentAtIso,
+      awaitReply,
+    )
     .run();
+  if (input.sourceMessageId && input.claimToken)
+    await d1()
+      .prepare(
+        `UPDATE messages SET
+           replied_at = COALESCE(replied_at, ?),
+           reply_claim_token = NULL,
+           reply_claim_until = NULL
+         WHERE external_id = ? AND lead_id = ?
+           AND (reply_claim_token = ? OR replied_at IS NOT NULL)`,
+      )
+      .bind(sentAtIso, input.sourceMessageId, input.leadId, input.claimToken)
+      .run();
   return {
     leadId: input.leadId,
     threadId: input.threadId,

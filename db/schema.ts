@@ -55,11 +55,15 @@ export const messages = sqliteTable(
     id: text('id').primaryKey(),
     leadId: text('lead_id').references(() => leads.id, { onDelete: 'cascade' }),
     externalId: text('external_id'),
+    threadId: text('thread_id'),
     direction: text('direction').notNull(),
     channel: text('channel').notNull(),
     subject: text('subject'),
     bodyExcerpt: text('body_excerpt'),
     classification: text('classification'),
+    replyClaimToken: text('reply_claim_token'),
+    replyClaimUntil: text('reply_claim_until'),
+    repliedAt: text('replied_at'),
     createdAt: text('created_at')
       .notNull()
       .default(sql`(datetime('now'))`),
@@ -279,6 +283,7 @@ export const calBookings = sqliteTable(
     }),
     lastEventId: text('last_event_id').notNull(),
     lastEventType: text('last_event_type').notNull(),
+    lastEventCreated: integer('last_event_created').notNull().default(0),
     startsAt: text('starts_at'),
     endsAt: text('ends_at'),
     createdAt: text('created_at')

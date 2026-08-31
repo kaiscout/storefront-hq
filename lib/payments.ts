@@ -75,6 +75,7 @@ export type StripePaymentLeadCandidate = {
   id: string;
   contactEmail?: string | null;
   contactChannel: string;
+  contactPermission?: string | null;
   status: string;
 };
 
@@ -100,6 +101,13 @@ const reconciledPaymentStatuses = new Set([
   'delivered',
 ]);
 
+function isStripePaymentEligible(candidate: StripePaymentLeadCandidate) {
+  return (
+    stripePaymentChannels.has(candidate.contactChannel) ||
+    candidate.contactPermission === 'scheduled-contact'
+  );
+}
+
 function normalizedEmail(value?: string | null) {
   return value?.trim().toLowerCase() ?? '';
 }
@@ -114,7 +122,7 @@ export function resolveStripePaymentLead(
   if (reference) {
     const lead = candidates.find((candidate) => candidate.id === reference);
     if (!lead) return { matched: false, reason: 'reference-not-found' };
-    if (!stripePaymentChannels.has(lead.contactChannel))
+    if (!isStripePaymentEligible(lead))
       return { matched: false, reason: 'ineligible-channel' };
     if (email && normalizedEmail(lead.contactEmail) !== email)
       return { matched: false, reason: 'email-mismatch' };
@@ -130,7 +138,7 @@ export function resolveStripePaymentLead(
   if (!email) return { matched: false, reason: 'missing-identity' };
   const eligible = candidates.filter(
     (candidate) =>
-      stripePaymentChannels.has(candidate.contactChannel) &&
+      isStripePaymentEligible(candidate) &&
       candidate.status === 'booked' &&
       normalizedEmail(candidate.contactEmail) === email,
   );

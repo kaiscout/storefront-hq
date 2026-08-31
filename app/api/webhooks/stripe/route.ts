@@ -33,6 +33,7 @@ function candidateFromLead(
         id: lead.id,
         contactEmail: lead.contact_email,
         contactChannel: lead.contact_channel,
+        contactPermission: lead.contact_permission,
         status: lead.status,
       }
     : null;

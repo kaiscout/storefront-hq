@@ -5,7 +5,9 @@ import {
   intakeRateLimitKey,
   isPublicHttpsStoreUrl,
   normalizedSingleLine,
+  parseWebsiteConfirmationSubject,
   readRequestBodyWithinLimit,
+  websiteConfirmationSubject,
 } from '../lib/intake.ts';
 
 void test('intake accepts public HTTPS storefronts and rejects local or credentialed targets', () => {
@@ -54,4 +56,19 @@ void test('intake normalizes names and hashes the request source without retaini
     spoofedOnly,
     await intakeRateLimitKey(new Request('https://example.test/api/intake')),
   );
+});
+
+void test('website confirmation subjects require one exact intake UUID', () => {
+  const id = '018f47d2-2b32-7cc3-8e89-9bb8fd601234';
+  const subject = websiteConfirmationSubject(id);
+  assert.equal(subject, `Storefront QA confirmation [${id}]`);
+  assert.equal(parseWebsiteConfirmationSubject(subject), id);
+  for (const invalid of [
+    `Re: ${subject}`,
+    `${subject} extra`,
+    subject.replace('[', ''),
+    `${subject}\r\nBcc: attacker@example.com`,
+    'Storefront QA confirmation [not-a-uuid]',
+  ])
+    assert.equal(parseWebsiteConfirmationSubject(invalid), null);
 });

@@ -99,23 +99,29 @@ export async function POST(request: Request) {
   const sourceRateLimit = await consumePublicIntakeAttempt(
     await intakeRateLimitKey(request),
   );
-  const globalRateLimit = await consumePublicIntakeAttempt(
-    'intake-rate:global',
-    30,
-  );
-  if (!sourceRateLimit.allowed || !globalRateLimit.allowed)
+  if (!sourceRateLimit.allowed)
     return Response.json(
       { error: 'Too many requests. Please try again later.' },
       {
         status: 429,
         headers: {
           'Cache-Control': 'no-store',
-          'Retry-After': String(
-            Math.max(
-              sourceRateLimit.retryAfterSeconds,
-              globalRateLimit.retryAfterSeconds,
-            ),
-          ),
+          'Retry-After': String(sourceRateLimit.retryAfterSeconds),
+        },
+      },
+    );
+  const globalRateLimit = await consumePublicIntakeAttempt(
+    'intake-rate:global',
+    30,
+  );
+  if (!globalRateLimit.allowed)
+    return Response.json(
+      { error: 'Too many requests. Please try again later.' },
+      {
+        status: 429,
+        headers: {
+          'Cache-Control': 'no-store',
+          'Retry-After': String(globalRateLimit.retryAfterSeconds),
         },
       },
     );

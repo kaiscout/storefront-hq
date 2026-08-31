@@ -1,0 +1,1 @@
+ALTER TABLE `messages` ADD `thread_id` text;

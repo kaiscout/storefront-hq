@@ -1,11 +1,20 @@
 {
   "timeZone": "Europe/London",
-  "dependencies": {},
+  "dependencies": {
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "Gmail",
+        "version": "v1",
+        "serviceId": "gmail"
+      }
+    ]
+  },
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8",
   "urlFetchWhitelist": [
     "https://gmail.googleapis.com/",
-    "https://road-to-10-storefront-qa.deniropro.chatgpt.site/"
+    "https://storefronthq.co.uk/",
+    "https://storefront-hq.deniropro.chatgpt.site/"
   ],
   "oauthScopes": [
     "https://www.googleapis.com/auth/gmail.modify",

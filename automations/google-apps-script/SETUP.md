@@ -28,7 +28,24 @@ send or permanent-delete call.
 5. Run `createProposalDrafts()` manually once. Confirm that a draft is created but not sent.
 6. Run `syncInboundReplies()` with a labelled test thread and confirm the control room changes.
 
-The daily discovery and regression-watch triggers use Firecrawl through the Site. Public source-page watch runs hourly and compares only the publicly accessible response for active, allowlisted source-platform URLs; it does not request authenticated or login-gated content. Regression watch runs only for client-approved routes entered in the control room. An hourly SLA check summarizes paid work approaching or exceeding 48 hours, and a daily cleanup applies the published 30/90-day privacy rules while retaining suppression and paid/contract records. The 5-minute reply trigger and 15-minute draft trigger run on Google’s infrastructure, so the local computer can be off.
+Resource-saving policy (September 22, 2026): the existing daily discovery and
+hourly source-watch timers remain compatible, but their Site endpoints return
+explicit HTTP 200 policy deferrals without calling Firecrawl or checking source
+content. A successful timer execution is not a successful public-source check.
+The separate business monitor runs every six hours, reviews existing public
+conversations with ordinary web tools, and performs fresh ordinary-web discovery
+once per UTC day. Verified opportunities can use manual discovery intake; targeted
+operator qualification remains budgeted and is used only when ordinary checks
+prove insufficient. No Apps Script trigger reinstallation is required for this
+server-side policy.
+
+Daily regression watch still uses Firecrawl only for paid, client-approved routes
+entered in the control room. An hourly SLA check summarizes paid work approaching
+or exceeding 48 hours, and a daily cleanup applies the published 30/90-day privacy
+rules while retaining suppression and paid/contract records. The 5-minute reply
+ingestion trigger and 15-minute draft trigger run on Google's infrastructure,
+so the local computer can be off. Ingestion alone is not an immediate consultant
+response or an operator notification.
 
 When a human sends a reviewed Gmail draft, the next reconciliation records the sent thread in the Site ledger before applying the watch label. Reconciliation is idempotent and the script still contains no send call.
 

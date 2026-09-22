@@ -273,7 +273,9 @@ export default async function OpsPage() {
                   No opportunities yet.
                 </p>
                 <p className="mt-1 text-sm">
-                  Connect Firecrawl, then run the scheduled discovery endpoint.
+                  Review fresh public requests using ordinary web tools, then
+                  record verified opportunities. Routine discovery does not use
+                  Firecrawl credits.
                 </p>
               </div>
             </div>

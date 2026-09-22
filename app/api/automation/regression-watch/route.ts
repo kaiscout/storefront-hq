@@ -10,6 +10,7 @@ import {
 } from '@/lib/firecrawl';
 import { offer } from '@/lib/offer';
 import { hasAutomationSecret } from '@/lib/security';
+import { FirecrawlDeferred } from '@/lib/firecrawl-budget';
 
 export async function POST(request: Request) {
   if (!hasAutomationSecret(request))
@@ -18,12 +19,22 @@ export async function POST(request: Request) {
   const targets = await listRegressionWatchTargets();
   let checked = 0;
   let changed = 0;
+  let deferred = 0;
   const failures: Array<{ leadId: string; url: string; error: string }> = [];
 
   for (const target of targets) {
     const results = await Promise.allSettled(
       target.routes.slice(0, offer.watchRouteLimit).map(async (url) => {
-        const document = await scrapeStorefrontPreview(url);
+        let document;
+        try {
+          document = await scrapeStorefrontPreview(url, 'delivery');
+        } catch (error) {
+          if (error instanceof FirecrawlDeferred) {
+            deferred += 1;
+            return;
+          }
+          throw error;
+        }
         const snapshot = await recordRouteSnapshot({
           leadId: target.leadId,
           url,
@@ -75,6 +86,7 @@ export async function POST(request: Request) {
       checked,
       changed,
       failures,
+      deferred,
     },
     { status: failures.length ? 502 : 200 },
   );

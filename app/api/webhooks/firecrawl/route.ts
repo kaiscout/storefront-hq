@@ -16,6 +16,7 @@ import {
   type ScrapeDocument,
 } from '@/lib/firecrawl';
 import { sha256Hex, verifyHexHmac } from '@/lib/security';
+import { releaseFailedCrawl } from '@/lib/firecrawl-budget';
 
 type FirecrawlEvent = {
   type: string;
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
         ['fulfilling'],
       );
     } else if (event.type === 'crawl.failed') {
+      await releaseFailedCrawl(leadId, event.id);
       await retryFailedAudit(
         leadId,
         `Audit crawl failed: ${event.error ?? 'unknown error'}. Review and retry.`,

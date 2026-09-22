@@ -123,7 +123,9 @@ void test('discovery filters noisy pages and ranks recent replyable requests fir
   };
 
   try {
-    const results = await discoverExplicitIntent();
+    const results = await discoverExplicitIntent(async () => ({
+      recordOutcome: async () => {},
+    }));
     assert.deepEqual(
       results.map((result) => result.url),
       [
@@ -141,6 +143,8 @@ void test('discovery filters noisy pages and ranks recent replyable requests fir
       ['UK', 'US'],
     );
     assert.equal(requestBodies[0]?.tbs, 'qdr:w,sbd:1');
+    assert.equal(requestBodies[0]?.limit, 5);
+    assert.equal(requestBodies[0]?.scrapeOptions, undefined);
     assert.match(String(requestBodies[0]?.query), /-career/);
   } finally {
     globalThis.fetch = originalFetch;
@@ -175,7 +179,9 @@ void test('discovery keeps one market running when the other search fails', asyn
   };
 
   try {
-    const results = await discoverExplicitIntent();
+    const results = await discoverExplicitIntent(async () => ({
+      recordOutcome: async () => {},
+    }));
     assert.deepEqual(
       results.map((result) => result.url),
       ['https://www.reddit.com/r/shopify/comments/us123/audit_help/'],

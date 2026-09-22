@@ -1,6 +1,7 @@
 import { assessBuyerIntent } from './pipeline.ts';
 import { offer } from './offer.ts';
 import { sha256Hex } from './security.ts';
+import { reserveFirecrawl, FirecrawlDeferred } from './firecrawl-budget.ts';
 
 const API_BASE = 'https://api.firecrawl.dev/v2';
 
@@ -86,9 +87,20 @@ export function isSuccessfulStorefrontDocument(document: ScrapeDocument) {
   return statusCode === undefined || (statusCode >= 200 && statusCode < 400);
 }
 
-async function firecrawlFetch<T>(path: string, body: unknown): Promise<T> {
+async function firecrawlFetch<T>(
+  path: string,
+  body: unknown,
+  budget: {
+    key: string;
+    units: number;
+    purpose: 'research' | 'delivery';
+    cooldownMs: number;
+  },
+  reserve = reserveFirecrawl,
+): Promise<T> {
   const apiKey = process.env.FIRECRAWL_API_KEY;
   if (!apiKey) throw new Error('FIRECRAWL_API_KEY is not configured');
+  const reservation = await reserve(budget);
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: {
@@ -101,10 +113,21 @@ async function firecrawlFetch<T>(path: string, body: unknown): Promise<T> {
     const detail = (await response.text()).slice(0, 500);
     throw new Error(`Firecrawl ${path} failed (${response.status}): ${detail}`);
   }
-  return (await response.json()) as T;
+  const result = (await response.json()) as T & {
+    success?: boolean;
+    id?: string;
+  };
+  if (!result.success)
+    throw new Error(`Firecrawl ${path} returned an unsuccessful response`);
+  if (path === '/crawl' && !result.id)
+    throw new Error(
+      'Firecrawl crawl did not return an ID; operator review required',
+    );
+  await reservation.recordOutcome(path === '/crawl' ? result.id : undefined);
+  return result;
 }
 
-export async function discoverExplicitIntent() {
+export async function discoverExplicitIntent(reserve = reserveFirecrawl) {
   const query =
     '(Shopify OR ecommerce OR storefront) ("looking for" OR "seeking" OR "need help" OR "can anyone help" OR "proposals") (QA OR testing OR audit OR "broken links" OR CRO OR BFCM OR "Black Friday" OR "store speed") -career -careers -salary -"job description" -"how to"';
   type SearchResponse = {
@@ -113,18 +136,26 @@ export async function discoverExplicitIntent() {
   };
   const searches = await Promise.allSettled(
     ['US', 'UK'].map((country) =>
-      firecrawlFetch<SearchResponse>('/search', {
-        query,
-        limit: 25,
-        sources: ['web'],
-        tbs: 'qdr:w,sbd:1',
-        country,
-        ignoreInvalidURLs: true,
-        scrapeOptions: {
-          formats: [{ type: 'markdown' }],
-          onlyMainContent: true,
+      firecrawlFetch<SearchResponse>(
+        '/search',
+        {
+          query,
+          limit: 5,
+          sources: ['web'],
+          tbs: 'qdr:w,sbd:1',
+          country,
+          ignoreInvalidURLs: true,
+          // Search snippets first. Only qualified candidates get a separate,
+          // budgeted public-page check; never scrape every search result.
         },
-      }),
+        {
+          key: `discovery:${country}`,
+          units: 2,
+          purpose: 'research',
+          cooldownMs: 23 * 3600_000,
+        },
+        reserve,
+      ),
     ),
   );
   const successfulSearches = searches.filter(
@@ -132,9 +163,15 @@ export async function discoverExplicitIntent() {
       result.status === 'fulfilled',
   );
   if (!successfulSearches.length) {
+    const actualFailure = searches.find(
+      (result) =>
+        result.status === 'rejected' &&
+        !(result.reason instanceof FirecrawlDeferred),
+    );
     const failure = searches.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
+    if (actualFailure?.status === 'rejected') throw actualFailure.reason;
     throw failure?.reason instanceof Error
       ? failure.reason
       : new Error('Firecrawl discovery failed in every configured market');
@@ -162,7 +199,7 @@ export async function discoverExplicitIntent() {
           result.metadata?.date ??
           result.metadata?.publishedDate,
       });
-      if (!assessment.accepted) return null;
+      if (!assessment.accepted || !assessment.publishedAt) return null;
       return {
         url,
         title,
@@ -197,20 +234,40 @@ export async function discoverExplicitIntent() {
     .map(({ recencyRank: _recencyRank, ...result }) => result);
 }
 
-export async function scrapeStorefrontPreview(url: string) {
+export async function scrapeStorefrontPreview(
+  url: string,
+  purpose: 'research' | 'delivery' = 'research',
+) {
+  const target = new URL(url);
+  target.hash = '';
+  if (/(^|\.)(x\.com|twitter\.com)$/i.test(target.hostname))
+    throw new Error(
+      'High-cost social scraping is disabled; review the public source manually',
+    );
   const response = await firecrawlFetch<{
     success: boolean;
     data?: ScrapeDocument;
-  }>('/scrape', {
-    url,
-    formats: ['markdown', 'links', 'screenshot'],
-    onlyMainContent: false,
-    mobile: true,
-    blockAds: true,
-    removeBase64Images: true,
-    timeout: 45_000,
-    location: { country: 'GB', languages: ['en-GB'] },
-  });
+  }>(
+    '/scrape',
+    {
+      url,
+      formats: ['markdown', 'links', 'screenshot'],
+      onlyMainContent: false,
+      mobile: true,
+      blockAds: true,
+      removeBase64Images: true,
+      timeout: 45_000,
+      location: { country: 'GB', languages: ['en-GB'] },
+      parsers: [],
+      maxAge: 0,
+    },
+    {
+      key: `scrape:${purpose}:${await sha256Hex(target.href)}`,
+      units: 1,
+      purpose,
+      cooldownMs: purpose === 'delivery' ? 23 * 3600_000 : 2 * 3600_000,
+    },
+  );
   if (!response.data)
     throw new Error('Firecrawl returned no storefront document');
   return response.data;
@@ -357,12 +414,19 @@ export async function startFullAudit(input: {
         blockAds: true,
         removeBase64Images: true,
         location: { country: 'GB', languages: ['en-GB'] },
+        parsers: [],
       },
       webhook: {
         url: input.webhookUrl,
         events: ['started', 'page', 'completed', 'failed'],
         metadata: { leadId: input.leadId },
       },
+    },
+    {
+      key: `audit:${input.leadId}`,
+      units: offer.pageLimit,
+      purpose: 'delivery',
+      cooldownMs: 48 * 3600_000,
     },
   );
 }

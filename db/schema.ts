@@ -7,6 +7,35 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 
+export const firecrawlCreditPeriods = sqliteTable('firecrawl_credit_periods', {
+  period: text('period').primaryKey(),
+  endsAt: text('ends_at').notNull(),
+  allowance: integer('allowance').notNull(),
+  remaining: integer('remaining').notNull(),
+  checkedAt: text('checked_at').notNull(),
+});
+
+export const firecrawlSpend = sqliteTable(
+  'firecrawl_spend',
+  {
+    id: text('id').primaryKey(),
+    period: text('period').notNull(),
+    day: text('day').notNull(),
+    requestKey: text('request_key').notNull(),
+    purpose: text('purpose').notNull(),
+    units: integer('units').notNull(),
+    reservedAt: text('reserved_at').notNull(),
+    settledUnits: integer('settled_units').notNull().default(0),
+    externalId: text('external_id'),
+    retryReleased: integer('retry_released').notNull().default(0),
+  },
+  (table) => [
+    index('idx_firecrawl_spend_period').on(table.period, table.purpose),
+    index('idx_firecrawl_spend_day').on(table.day, table.purpose),
+    index('idx_firecrawl_spend_request').on(table.requestKey, table.reservedAt),
+  ],
+);
+
 export const leads = sqliteTable(
   'leads',
   {

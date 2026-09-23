@@ -9,6 +9,7 @@ import {
 import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
+import { SprintContact } from '@/components/sprint-contact';
 import { buttonVariants } from '@/components/ui/button';
 import {
   Card,
@@ -27,26 +28,26 @@ const scope = [
   'Mobile screenshots, severity and fix-ready recommendations',
   'Top-three repair brief, retest checks, redirect CSV and copy-ready corrections',
   `${offer.handoffMinutes}-minute findings handoff`,
-  `Daily checks on ${offer.watchRouteLimit} critical pages for ${offer.watchDays} days`,
+  `${offer.watchDays}-day regression watch on up to ${offer.watchRouteLimit} client-approved public routes`,
 ];
 
 const findings = [
   {
-    severity: 'Critical',
-    path: '/collections/summer-edit',
-    signal: 'Featured product route returns 404 on mobile',
+    severity: 'Selection',
+    path: 'Selected colour → cart',
+    signal: 'Before: Navy selection adds Natural. After: the cart retains Navy.',
     tone: 'bg-[#ff6b35] text-white',
   },
   {
-    severity: 'High',
-    path: '/products/linen-set',
-    signal: 'Sale copy conflicts with the price shown in cart',
+    severity: 'Delivery',
+    path: 'Free-delivery promise → total',
+    signal: 'Before: £6 delivery on a qualifying £69 order. After: £0 delivery.',
     tone: 'bg-[#f2c14e] text-[#10261f]',
   },
   {
-    severity: 'Medium',
-    path: '/pages/shipping',
-    signal: 'Delivery promise disagrees with checkout messaging',
+    severity: 'Navigation',
+    path: 'Product → size guide',
+    signal: 'Before: guide returns 404. After: dimensions load successfully.',
     tone: 'bg-[#d9e8c8] text-[#10261f]',
   },
 ];
@@ -89,7 +90,7 @@ export default function Home() {
                 'h-10 rounded-full bg-[#ff6b35] px-4 font-bold text-white hover:bg-[#e95725]',
               )}
             >
-              Check availability <ArrowRight data-icon="inline-end" />
+              Check fit · £{offer.priceGbp} <ArrowRight data-icon="inline-end" />
             </Link>
           </nav>
         </div>
@@ -104,21 +105,21 @@ export default function Home() {
           <div>
             <Badge
               variant="outline"
-              className="mb-6 h-auto rounded-full border-foreground/20 bg-background px-3 py-1 font-mono text-[11px] uppercase tracking-[0.12em]"
+              className="mb-6 h-auto rounded-full border-foreground/20 bg-background px-3 py-1 text-sm font-bold"
             >
-              {offer.productName} · Shopify · Peak-season readiness ·{' '}
-              {offer.deliveryHours} hours
+              Independent public-storefront QA · Shopify
             </Badge>
-            <h1 className="max-w-4xl text-balance text-[clamp(3rem,7vw,6.5rem)] font-black leading-[0.88] tracking-[-0.065em]">
-              Find the broken buying paths before your customers do.
+            <h1 className="max-w-4xl text-balance text-[clamp(2.7rem,5vw,4.8rem)] font-black leading-[1.04] tracking-[-0.045em]">
+              Changed your Shopify store?
             </h1>
             <p className="mt-7 max-w-2xl text-pretty text-lg leading-8 text-muted-foreground sm:text-xl">
-              The {offer.productName} is a fixed-scope Shopify storefront QA
-              sprint with reproducible evidence, fix-ready recommendations, and{' '}
-              {offer.watchDays} days of regression watch. No backend access. No
-              retainer. No vague conversion theatre.
+              Know what needs fixing before your next campaign. In{' '}
+              {offer.deliveryHours} hours, get a prioritised, evidence-backed
+              repair plan your developer can act on. £{offer.priceGbp} fixed
+              fee, paid before work. No admin access required.
             </p>
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <p className="mt-4 text-base leading-7 text-muted-foreground">Diagnosis and repair guidance. Your team implements the changes. No guaranteed sales uplift.</p>
+            <div className="mt-7 flex flex-wrap gap-3 sm:items-center">
               <Link
                 href="/start"
                 className={cn(
@@ -126,7 +127,7 @@ export default function Home() {
                   'h-12 rounded-full bg-[#ff6b35] px-6 text-base font-bold text-white shadow-[0_8px_0_#10261f] hover:bg-[#e95725]',
                 )}
               >
-                Start the £{offer.priceGbp} sprint{' '}
+                Check my store’s fit · £{offer.priceGbp}{' '}
                 <ArrowRight data-icon="inline-end" />
               </Link>
               <Link
@@ -135,7 +136,7 @@ export default function Home() {
               >
                 See real checks: before → after
               </Link>
-              <span className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+              <span className="flex w-full items-start gap-2 py-3 text-sm leading-6 text-muted-foreground">
                 <ShieldCheck className="size-4 text-[#477a5b]" />
                 Fewer than {offer.minimumFindings} reproducible in-scope issues?
                 Request a full refund within seven days.{' '}
@@ -148,27 +149,27 @@ export default function Home() {
 
           <div className="relative lg:pl-8">
             <div className="absolute -left-2 -top-5 hidden rotate-[-7deg] rounded-full border-2 border-foreground bg-[#f2c14e] px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider shadow-[3px_3px_0_#10261f] sm:block lg:left-1">
-              Example evidence
+              Reproduced & retested
             </div>
             <Card className="gap-0 overflow-hidden rounded-[1.75rem] border-2 border-foreground/90 bg-[#10261f] py-0 text-[#f8f4e8] shadow-[14px_14px_0_rgba(16,38,31,0.14)] ring-0">
               <CardHeader className="gap-4 border-b border-white/15 px-5 py-5 sm:px-7">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#b9c6b7]">
-                      Evidence ledger · Sample store
+                    <p className="text-sm font-bold text-[#b9c6b7]">
+                      Our controlled demonstration
                     </p>
                     <CardTitle className="mt-2 text-xl font-bold text-white">
-                      Purchase-path findings
+                      See the issue. Check the repair.
                     </CardTitle>
                   </div>
-                  <span className="flex shrink-0 items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider">
-                    <span className="size-2 animate-pulse rounded-full bg-[#a8d66d]" />
-                    Illustrative
+                  <span className="shrink-0 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold">
+                    Before / after
                   </span>
                 </div>
                 <CardDescription className="text-[#b9c6b7]">
-                  Every item includes a timestamp, source route, screenshot and
-                  exact reproduction steps.
+                  Three intentional defects in our own test storefront, checked
+                  in mobile and desktop browsers. Not a client case study or a
+                  claim of increased sales.
                 </CardDescription>
               </CardHeader>
               <CardContent className="divide-y divide-white/10 px-0">
@@ -201,9 +202,25 @@ export default function Home() {
                   </article>
                 ))}
               </CardContent>
+              <div className="border-t border-white/15 px-5 py-5 sm:px-7">
+                <Link href="/sample-report" className="text-base font-bold text-[#a8d66d] underline underline-offset-4">Try the demo and inspect the evidence</Link>
+              </div>
             </Card>
           </div>
         </div>
+      </section>
+
+      <section aria-labelledby="fit-heading" className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10">
+        <h2 id="fit-heading" className="text-3xl font-black tracking-tight sm:text-4xl">For a store with a decision to make.</h2>
+        <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">Best suited to an established store or an agency release with a defined public journey to check and someone ready to act on the findings.</p>
+        <div className="mt-7 grid gap-5 md:grid-cols-3">
+          {[
+            ['A theme change or migration', 'Check public product, collection and cart journeys after changes. Give your developer reproducible issues instead of vague reports.'],
+            ['A launch or paid campaign', 'Review the public buying path and the consistency of product, delivery and returns information before directing more traffic to it.'],
+            ['An agency client release', 'Get an independent public-storefront QA pass. Your team keeps implementation; the evidence pack provides repair and acceptance-check guidance.'],
+          ].map(([title, description]) => <article key={title} className="rounded-2xl border border-foreground/15 bg-white/50 p-6"><h3 className="text-xl font-bold">{title}</h3><p className="mt-3 text-base leading-7 text-muted-foreground">{description}</p></article>)}
+        </div>
+        <p className="mt-6 text-base leading-7 text-muted-foreground">Need a developer to implement changes, analyse private analytics, access your admin or complete a checkout? Those are outside this sprint.</p>
       </section>
 
       <section id="scope" className="bg-[#10261f] text-[#f8f4e8]">
@@ -243,6 +260,17 @@ export default function Home() {
         </div>
       </section>
 
+      <section aria-labelledby="operator-heading" className="mx-auto grid max-w-7xl gap-8 px-5 py-14 sm:px-8 lg:grid-cols-2 lg:px-10">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-wide text-[#477a5b]">Who is behind Storefront HQ?</p>
+          <h2 id="operator-heading" className="mt-3 text-3xl font-black tracking-tight">Run by {config.operatorName || 'Deniz Izci'}.</h2>
+          <p className="mt-4 text-base leading-7 text-muted-foreground">Storefront HQ provides independent public-storefront quality assurance. The work focuses on observable behaviour, reproducible evidence and practical repair guidance—not an unexplained score.</p>
+          <p className="mt-4 text-base leading-7 text-muted-foreground">First we confirm fit and scope. Once payment has cleared and your live store, priority market and critical routes are confirmed, the {offer.deliveryHours}-hour delivery window begins. You receive the evidence pack and {offer.handoffMinutes}-minute handoff; your team owns implementation.</p>
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">Independent service. Not affiliated with or endorsed by Shopify. <Link href="/terms" className="underline underline-offset-2">Read the existing service terms</Link>.</p>
+        </div>
+        <SprintContact contactEmail={config.contactEmail} />
+      </section>
+
       <section
         id="start"
         className="border-b border-foreground/15 bg-[#f2c14e]"
@@ -259,7 +287,7 @@ export default function Home() {
               </span>
             </div>
             <h2 className="max-w-3xl text-4xl font-black leading-[0.95] tracking-[-0.045em] sm:text-6xl">
-              Bring a live Shopify store. Leave with a fix-ready evidence pack.
+              Bring a clear question. Leave with a prioritised repair plan.
             </h2>
           </div>
           <Link
@@ -269,7 +297,7 @@ export default function Home() {
               'h-12 rounded-full bg-[#10261f] px-6 text-base font-bold text-white hover:bg-[#1d4539]',
             )}
           >
-            Request a slot <ExternalLink data-icon="inline-end" />
+            Check fit before paying <ExternalLink data-icon="inline-end" />
           </Link>
         </div>
       </section>

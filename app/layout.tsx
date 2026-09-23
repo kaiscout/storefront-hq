@@ -20,7 +20,7 @@ const siteUrl = process.env.PUBLIC_SITE_URL?.trim() || 'http://localhost:3000';
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: `${offer.brandName} | ${offer.deliveryHours}-Hour Shopify ${offer.productName}`,
-  description: `Reproducible storefront findings, fix-ready recommendations, and ${offer.watchDays} days of regression watch—delivered in ${offer.deliveryHours} hours.`,
+  description: `Changed your Shopify store? Get a prioritised public-storefront QA repair plan in ${offer.deliveryHours} hours. £${offer.priceGbp} fixed fee, ${offer.selectedFindings} fix-ready findings and ${offer.watchDays} days of regression watch. Implementation excluded.`,
   alternates: {
     canonical: '/',
   },

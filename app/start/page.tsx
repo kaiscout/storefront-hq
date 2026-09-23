@@ -2,6 +2,7 @@ import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 import { StartForm } from '@/components/start-form';
+import { SprintContact } from '@/components/sprint-contact';
 import { publicConfig } from '@/lib/config';
 import { offer } from '@/lib/offer';
 
@@ -27,15 +28,21 @@ export default function StartPage() {
               Is your store a fit for the {offer.deliveryHours}-hour sprint?
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-              Share the public storefront and a work email. We check the £
-              {offer.priceGbp} fixed scope before sending a payment link. You
-              will never be asked for Shopify admin access.
+              A recent theme change, store launch or campaign coming up? We
+              provide diagnosis and repair guidance for your implementation
+              team—not code changes. The fixed fee is £{offer.priceGbp}, paid
+              before work. You will never be asked for Shopify admin access.
             </p>
           </div>
-          <StartForm
-            enabled={config.launchReady}
-            contactEmail={config.contactEmail}
-          />
+          <SprintContact contactEmail={config.contactEmail} />
+          <section aria-labelledby="fit-form-heading">
+            <h2 id="fit-form-heading" className="text-2xl font-black">Or use the fit-check form.</h2>
+            <p className="mb-6 mt-3 text-base leading-7 text-muted-foreground">After submitting, confirm from your own email or book a fit call. This form alone does not trigger an automatic email.</p>
+            <StartForm
+              enabled={config.launchReady}
+              contactEmail={config.contactEmail}
+            />
+          </section>
           <div className="flex gap-3 border-t pt-5 text-sm leading-6 text-muted-foreground">
             <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[#477a5b]" />
             <p>

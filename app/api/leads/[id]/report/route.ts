@@ -12,6 +12,7 @@ import {
   sortEvidenceFindings,
   toAuditCoveragePages,
   toEvidenceFindings,
+  topThreeFixes,
 } from '@/lib/report';
 
 export async function GET(
@@ -76,6 +77,7 @@ export async function GET(
         status: lead.status,
       },
       findings: sortEvidenceFindings(findings),
+      topFixes: topThreeFixes(findings),
       auditCoverage: {
         summary: auditCoverageSummary(auditPages),
         pages: auditPages,

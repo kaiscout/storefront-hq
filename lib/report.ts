@@ -122,6 +122,43 @@ export function evidenceSummary(findings: EvidenceFinding[]) {
   return counts;
 }
 
+// Human-entered action notes stay in the existing recommendation field so old
+// evidence packs remain readable without a data migration or inferred facts.
+export function findingActionBrief(finding: EvidenceFinding) {
+  const sections = new Map<string, string[]>();
+  let current = '';
+  for (const line of finding.recommendation?.split('\n') ?? []) {
+    const match = /^(Fix|Why it matters|Suggested owner|Effort|Retest):\s*(.*)$/i.exec(line);
+    if (match) {
+      current = match[1].toLowerCase();
+      sections.set(current, [match[2]]);
+    } else if (current) sections.get(current)?.push(line);
+  }
+  const note = (label: string) => sections.get(label.toLowerCase())?.join('\n').trim() || null;
+  return {
+    fix: note('Fix') || finding.recommendation || 'Recommendation not recorded.',
+    impact: note('Why it matters') || 'Customer impact has not been assessed. Do not infer lost sales from this finding.',
+    owner: note('Suggested owner') || 'Assign with the merchant / implementation team.',
+    effort: note('Effort') || 'Not estimated — confirm with the implementer.',
+    retest: note('Retest') || 'Acceptance check not yet recorded; repeat the captured steps after the proposed change.',
+  };
+}
+
+export function topThreeFixes(findings: EvidenceFinding[]) {
+  const seen = new Set<string>();
+  return sortEvidenceFindings(findings).filter((finding) => {
+    const key = `${finding.url.trim()}|${finding.title.trim().toLowerCase()}`;
+    if (!finding.url.trim() || !finding.title.trim() || !finding.evidence.trim() ||
+      !finding.recommendation?.trim() || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 3).map((finding, index) => ({
+    rank: index + 1,
+    finding,
+    ...findingActionBrief(finding),
+  }));
+}
+
 export function isEvidencePackReady(
   findings: EvidenceFinding[],
   requiredFindings: number,
@@ -187,6 +224,17 @@ export function evidencePackCsv(input: {
     ['Generated at', new Date().toISOString()],
     [],
   ];
+  const priorityRows = [
+    ['TOP THREE FIXES — START HERE'],
+    ['Rank', 'Finding', 'Affected URL', 'Observed evidence', 'Fix', 'Why it matters (assessment)', 'Suggested owner', 'Effort', 'Acceptance check'],
+    ...topThreeFixes(input.findings).map((item) => [
+      item.rank, item.finding.title, item.finding.url, item.finding.evidence,
+      item.fix, item.impact, item.owner, item.effort, item.retest,
+    ]),
+    ['Priority basis', 'Recorded severity, then URL/title. Not predicted revenue. Human review required.'],
+    [],
+    ['FULL FINDINGS'],
+  ];
   const coverageRows = input.auditCoverage?.length
     ? [
         [],
@@ -210,7 +258,7 @@ export function evidencePackCsv(input: {
         ]),
       ]
     : [];
-  return [...metadata, ...findingRows, ...coverageRows]
+  return [...metadata, ...priorityRows, ...findingRows, ...coverageRows]
     .map((row) => row.map(csvCell).join(','))
     .join('\r\n');
 }

@@ -6,6 +6,7 @@ import {
   RemoveFindingButton,
 } from '@/components/ops/finding-editor';
 import { ReportActions } from '@/components/ops/report-actions';
+import { TopFixes } from '@/components/top-fixes';
 import { Badge } from '@/components/ui/badge';
 import {
   getLead,
@@ -149,6 +150,7 @@ export default async function EvidenceReportPage({
         </header>
 
         <div className="space-y-10 px-6 py-8 sm:px-10 sm:py-10">
+          <TopFixes findings={findings} />
           <section className="grid gap-4 sm:grid-cols-4">
             {[
               ['Critical', summary.critical],

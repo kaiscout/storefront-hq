@@ -1,0 +1,61 @@
+{
+  "verified": true,
+  "checkedAt": "2026-09-23T10:19:51.336Z",
+  "context": "Real Chromium checks on a local controlled Storefront HQ fixture, not merchant results. No payment or live checkout.",
+  "browser": "152.0.7977.82",
+  "checks": [
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "mode": "before",
+      "selected": "Selected: Navy",
+      "cart": "Colour: Natural",
+      "shipping": "£6",
+      "total": "£75",
+      "guideStatus": 404
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "mode": "after",
+      "selected": "Selected: Navy",
+      "cart": "Colour: Navy",
+      "shipping": "£0",
+      "total": "£69",
+      "guideStatus": 200
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "mode": "before",
+      "selected": "Selected: Navy",
+      "cart": "Colour: Natural",
+      "shipping": "£6",
+      "total": "£75",
+      "guideStatus": 404
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "mode": "after",
+      "selected": "Selected: Navy",
+      "cart": "Colour: Navy",
+      "shipping": "£0",
+      "total": "£69",
+      "guideStatus": 200
+    }
+  ],
+  "sourceHashes": {
+    "components/demo-storefront.tsx": "f26e27f731c96406041ceed525727139e4cd290753fbaa47c9bab50f1cab55b1",
+    "app/demo/[version]/page.tsx": "75c5ea15b08a43c0a5cfeb04e657d824973fd91ada06cd7e58dae38f8def9050",
+    "app/demo/[version]/size-guide/page.tsx": "92be052fd546aab3fc58c46e99e1e8b70b2c5b171bd650351a5231da4495cda4"
+  }
+}

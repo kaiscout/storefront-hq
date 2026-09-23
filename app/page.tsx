@@ -25,7 +25,7 @@ const scope = [
   `Up to ${offer.pageLimit} public product, collection and policy pages`,
   `${offer.selectedFindings} confirmed findings with exact URLs and reproduction steps`,
   'Mobile screenshots, severity and fix-ready recommendations',
-  'Redirect CSV and copy-ready corrections for priority issues',
+  'Top-three repair brief, retest checks, redirect CSV and copy-ready corrections',
   `${offer.handoffMinutes}-minute findings handoff`,
   `Daily checks on ${offer.watchRouteLimit} critical pages for ${offer.watchDays} days`,
 ];
@@ -80,7 +80,7 @@ export default function Home() {
               href="/sample-report"
               className="hidden px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:block"
             >
-              Sample report
+              Proof & sample report
             </Link>
             <Link
               href="/start"
@@ -133,7 +133,7 @@ export default function Home() {
                 href="/sample-report"
                 className="inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-[#10261f] underline decoration-[#ff6b35] decoration-2 underline-offset-4"
               >
-                View a sample evidence pack
+                See real checks: before → after
               </Link>
               <span className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
                 <ShieldCheck className="size-4 text-[#477a5b]" />

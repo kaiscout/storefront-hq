@@ -4,11 +4,11 @@ Storefront HQ sells one fixed-price product: the **Storefront QA Sprint**, a **Â
 
 The canonical brand, product, price, and scope values live in [`lib/offer.ts`](./lib/offer.ts). Public copy and operating documentation must mirror those constants: up to 250 public pages, 12 selected findings, an eight-finding evidence guarantee, a 20-minute handoff, and daily observation of 10 agreed routes for 30 days.
 
-The acquisition model is intent-only. Firecrawl locates recent public requests for Shopify QA/CRO/readiness help. An operator verifies the request and its channel rules, confirms one public-storefront issue, and approves a tailored proposal. Gmail creates a draft but never auto-sends. Replies, Cal bookings, payments and Firecrawl audit events advance a durable D1 pipeline.
+The acquisition model is intent- and permission-led. Ordinary public-web checks locate recent paid-help requests and public Shopify agency profiles. An operator verifies the need, channel rules and fit, then prepares one relevant evidence preview or consented introduction. Firecrawl is reserved behind the production budget guard for bounded cases where ordinary checks are insufficient. Gmail never cold-sends. Replies, Cal bookings, payments and authorised audit events advance a durable D1 pipeline.
 
 ## What is automated
 
-- Daily Firecrawl search for fresh, explicit buyer-intent requests
+- One ordinary-web discovery pass per UTC day for fresh, explicit buyer-intent requests
 - Dedupe, scoring and a human qualification gate
 - Firecrawl mobile preview and evidence capture
 - Proposal drafting for an approved reply channel
@@ -23,6 +23,7 @@ The acquisition model is intent-only. Firecrawl locates recent public requests f
 
 - Unsolicited commercial Gmail sending
 - Scraping private contact details
+- Automated cold agency or merchant outreach
 - Sending marketplace leads off-platform
 - Claims of conversion or revenue uplift
 - Final evidence validation, refunds or ambiguous reply decisions

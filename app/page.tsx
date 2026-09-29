@@ -35,13 +35,15 @@ const findings = [
   {
     severity: 'Selection',
     path: 'Selected colour → cart',
-    signal: 'Before: Navy selection adds Natural. After: the cart retains Navy.',
+    signal:
+      'Before: Navy selection adds Natural. After: the cart retains Navy.',
     tone: 'bg-[#ff6b35] text-white',
   },
   {
     severity: 'Delivery',
     path: 'Free-delivery promise → total',
-    signal: 'Before: £6 delivery on a qualifying £69 order. After: £0 delivery.',
+    signal:
+      'Before: £6 delivery on a qualifying £69 order. After: £0 delivery.',
     tone: 'bg-[#f2c14e] text-[#10261f]',
   },
   {
@@ -84,13 +86,20 @@ export default function Home() {
               Proof & sample report
             </Link>
             <Link
+              href="/agency-partners"
+              className="hidden px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground lg:block"
+            >
+              For agencies
+            </Link>
+            <Link
               href="/start"
               className={cn(
                 buttonVariants({ size: 'lg' }),
                 'h-10 rounded-full bg-[#ff6b35] px-4 font-bold text-white hover:bg-[#e95725]',
               )}
             >
-              Check fit · £{offer.priceGbp} <ArrowRight data-icon="inline-end" />
+              Check fit · £{offer.priceGbp}{' '}
+              <ArrowRight data-icon="inline-end" />
             </Link>
           </nav>
         </div>
@@ -118,7 +127,10 @@ export default function Home() {
               repair plan your developer can act on. £{offer.priceGbp} fixed
               fee, paid before work. No admin access required.
             </p>
-            <p className="mt-4 text-base leading-7 text-muted-foreground">Diagnosis and repair guidance. Your team implements the changes. No guaranteed sales uplift.</p>
+            <p className="mt-4 text-base leading-7 text-muted-foreground">
+              Diagnosis and repair guidance. Your team implements the changes.
+              No guaranteed sales uplift.
+            </p>
             <div className="mt-7 flex flex-wrap gap-3 sm:items-center">
               <Link
                 href="/start"
@@ -203,24 +215,85 @@ export default function Home() {
                 ))}
               </CardContent>
               <div className="border-t border-white/15 px-5 py-5 sm:px-7">
-                <Link href="/sample-report" className="text-base font-bold text-[#a8d66d] underline underline-offset-4">Try the demo and inspect the evidence</Link>
+                <Link
+                  href="/sample-report"
+                  className="text-base font-bold text-[#a8d66d] underline underline-offset-4"
+                >
+                  Try the demo and inspect the evidence
+                </Link>
               </div>
             </Card>
           </div>
         </div>
       </section>
 
-      <section aria-labelledby="fit-heading" className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10">
-        <h2 id="fit-heading" className="text-3xl font-black tracking-tight sm:text-4xl">For a store with a decision to make.</h2>
-        <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">Best suited to an established store or an agency release with a defined public journey to check and someone ready to act on the findings.</p>
+      <section
+        aria-labelledby="fit-heading"
+        className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10"
+      >
+        <h2
+          id="fit-heading"
+          className="text-3xl font-black tracking-tight sm:text-4xl"
+        >
+          For a store with a decision to make.
+        </h2>
+        <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
+          Best suited to an established store or an agency release with a
+          defined public journey to check and someone ready to act on the
+          findings.
+        </p>
         <div className="mt-7 grid gap-5 md:grid-cols-3">
           {[
-            ['A theme change or migration', 'Check public product, collection and cart journeys after changes. Give your developer reproducible issues instead of vague reports.'],
-            ['A launch or paid campaign', 'Review the public buying path and the consistency of product, delivery and returns information before directing more traffic to it.'],
-            ['An agency client release', 'Get an independent public-storefront QA pass. Your team keeps implementation; the evidence pack provides repair and acceptance-check guidance.'],
-          ].map(([title, description]) => <article key={title} className="rounded-2xl border border-foreground/15 bg-white/50 p-6"><h3 className="text-xl font-bold">{title}</h3><p className="mt-3 text-base leading-7 text-muted-foreground">{description}</p></article>)}
+            [
+              'A theme change or migration',
+              'Check public product, collection and cart journeys after changes. Give your developer reproducible issues instead of vague reports.',
+            ],
+            [
+              'A launch or paid campaign',
+              'Review the public buying path and the consistency of product, delivery and returns information before directing more traffic to it.',
+            ],
+            [
+              'An agency client release',
+              'Get an independent public-storefront QA pass. Your team keeps implementation; the evidence pack provides repair and acceptance-check guidance.',
+            ],
+          ].map(([title, description]) => (
+            <article
+              key={title}
+              className="rounded-2xl border border-foreground/15 bg-white/50 p-6"
+            >
+              <h3 className="text-xl font-bold">{title}</h3>
+              <p className="mt-3 text-base leading-7 text-muted-foreground">
+                {description}
+              </p>
+            </article>
+          ))}
         </div>
-        <p className="mt-6 text-base leading-7 text-muted-foreground">Need a developer to implement changes, analyse private analytics, access your admin or complete a checkout? Those are outside this sprint.</p>
+        <p className="mt-6 text-base leading-7 text-muted-foreground">
+          Need a developer to implement changes, analyse private analytics,
+          access your admin or complete a checkout? Those are outside this
+          sprint.
+        </p>
+        <div className="mt-8 grid gap-5 rounded-[1.75rem] border-2 border-[#10261f] bg-[#d9e8c8]/60 p-6 shadow-[8px_8px_0_rgba(16,38,31,0.12)] sm:p-8 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#477a5b]">
+              Agency release support
+            </p>
+            <h3 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">
+              Add an independent QA gate without adding headcount.
+            </h3>
+            <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground">
+              Your team keeps the client relationship and implementation. We
+              test the public storefront, document reproducible failures and
+              hand back a fix-ready repair queue before launch or handoff.
+            </p>
+          </div>
+          <Link
+            href="/agency-partners"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#10261f] px-6 font-bold text-white hover:bg-[#1d4539]"
+          >
+            See the agency path <ArrowRight className="size-4" />
+          </Link>
+        </div>
       </section>
 
       <section id="scope" className="bg-[#10261f] text-[#f8f4e8]">
@@ -260,13 +333,39 @@ export default function Home() {
         </div>
       </section>
 
-      <section aria-labelledby="operator-heading" className="mx-auto grid max-w-7xl gap-8 px-5 py-14 sm:px-8 lg:grid-cols-2 lg:px-10">
+      <section
+        aria-labelledby="operator-heading"
+        className="mx-auto grid max-w-7xl gap-8 px-5 py-14 sm:px-8 lg:grid-cols-2 lg:px-10"
+      >
         <div>
-          <p className="text-sm font-bold uppercase tracking-wide text-[#477a5b]">Who is behind Storefront HQ?</p>
-          <h2 id="operator-heading" className="mt-3 text-3xl font-black tracking-tight">Run by {config.operatorName || 'Deniz Izci'}.</h2>
-          <p className="mt-4 text-base leading-7 text-muted-foreground">Storefront HQ provides independent public-storefront quality assurance. The work focuses on observable behaviour, reproducible evidence and practical repair guidance—not an unexplained score.</p>
-          <p className="mt-4 text-base leading-7 text-muted-foreground">First we confirm fit and scope. Once payment has cleared and your live store, priority market and critical routes are confirmed, the {offer.deliveryHours}-hour delivery window begins. You receive the evidence pack and {offer.handoffMinutes}-minute handoff; your team owns implementation.</p>
-          <p className="mt-4 text-sm leading-6 text-muted-foreground">Independent service. Not affiliated with or endorsed by Shopify. <Link href="/terms" className="underline underline-offset-2">Read the existing service terms</Link>.</p>
+          <p className="text-sm font-bold uppercase tracking-wide text-[#477a5b]">
+            Who is behind Storefront HQ?
+          </p>
+          <h2
+            id="operator-heading"
+            className="mt-3 text-3xl font-black tracking-tight"
+          >
+            Run by {config.operatorName || 'Deniz Izci'}.
+          </h2>
+          <p className="mt-4 text-base leading-7 text-muted-foreground">
+            Storefront HQ provides independent public-storefront quality
+            assurance. The work focuses on observable behaviour, reproducible
+            evidence and practical repair guidance—not an unexplained score.
+          </p>
+          <p className="mt-4 text-base leading-7 text-muted-foreground">
+            First we confirm fit and scope. Once payment has cleared and your
+            live store, priority market and critical routes are confirmed, the{' '}
+            {offer.deliveryHours}-hour delivery window begins. You receive the
+            evidence pack and {offer.handoffMinutes}-minute handoff; your team
+            owns implementation.
+          </p>
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">
+            Independent service. Not affiliated with or endorsed by Shopify.{' '}
+            <Link href="/terms" className="underline underline-offset-2">
+              Read the existing service terms
+            </Link>
+            .
+          </p>
         </div>
         <SprintContact contactEmail={config.contactEmail} />
       </section>

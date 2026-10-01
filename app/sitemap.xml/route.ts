@@ -3,19 +3,50 @@ const siteUrl = (
 ).replace(/\/$/, '');
 
 const routes = [
-  { path: '', frequency: 'weekly', priority: '1.0' },
-  { path: '/start', frequency: 'weekly', priority: '0.9' },
-  { path: '/agency-partners', frequency: 'weekly', priority: '0.8' },
-  { path: '/sample-report', frequency: 'monthly', priority: '0.7' },
-  { path: '/privacy', frequency: 'yearly', priority: '0.2' },
-  { path: '/terms', frequency: 'yearly', priority: '0.2' },
+  { path: '', frequency: 'weekly', priority: '1.0', lastmod: '2026-10-01' },
+  {
+    path: '/start',
+    frequency: 'weekly',
+    priority: '0.9',
+    lastmod: '2026-09-29',
+  },
+  {
+    path: '/agency-partners',
+    frequency: 'weekly',
+    priority: '0.8',
+    lastmod: '2026-09-29',
+  },
+  {
+    path: '/shopify-launch-migration-qa-checklist',
+    frequency: 'monthly',
+    priority: '0.8',
+    lastmod: '2026-10-01',
+  },
+  {
+    path: '/sample-report',
+    frequency: 'monthly',
+    priority: '0.7',
+    lastmod: '2026-09-23',
+  },
+  {
+    path: '/privacy',
+    frequency: 'yearly',
+    priority: '0.2',
+    lastmod: '2026-09-22',
+  },
+  {
+    path: '/terms',
+    frequency: 'yearly',
+    priority: '0.2',
+    lastmod: '2026-09-22',
+  },
 ];
 
 export function GET() {
   const urls = routes
     .map(
-      ({ path, frequency, priority }) =>
-        `<url><loc>${siteUrl}${path}</loc><lastmod>2026-09-29</lastmod><changefreq>${frequency}</changefreq><priority>${priority}</priority></url>`,
+      ({ path, frequency, priority, lastmod }) =>
+        `<url><loc>${siteUrl}${path}</loc><lastmod>${lastmod}</lastmod><changefreq>${frequency}</changefreq><priority>${priority}</priority></url>`,
     )
     .join('');
   return new Response(

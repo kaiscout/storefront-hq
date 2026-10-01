@@ -202,6 +202,13 @@ export default function AgencyPartnersPage() {
                 </li>
               ))}
             </ul>
+            <Link
+              href="/shopify-launch-migration-qa-checklist"
+              className="mt-6 inline-flex items-center gap-2 font-bold underline decoration-[#ff6b35] decoration-2 underline-offset-4"
+            >
+              Use the free launch and migration checklist
+              <ArrowRight className="size-4" />
+            </Link>
           </div>
           <div className="rounded-[1.75rem] border-2 border-[#10261f] bg-[#f8f4e8] p-6 sm:p-8">
             <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#477a5b]">

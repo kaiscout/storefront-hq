@@ -294,6 +294,27 @@ export default function Home() {
             See the agency path <ArrowRight className="size-4" />
           </Link>
         </div>
+        <div className="mt-5 grid gap-5 rounded-[1.75rem] border border-[#10261f]/15 bg-white/50 p-6 sm:p-8 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#477a5b]">
+              Free launch resource
+            </p>
+            <h3 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">
+              Run the public-storefront QA checklist first.
+            </h3>
+            <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground">
+              Six practical stages for Shopify migrations, theme changes,
+              launches and campaign releases. No email gate and no admin access
+              required.
+            </p>
+          </div>
+          <Link
+            href="/shopify-launch-migration-qa-checklist"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border-2 border-[#10261f] px-6 py-3 font-bold hover:bg-[#10261f] hover:text-white"
+          >
+            Open the checklist <ArrowRight className="size-4" />
+          </Link>
+        </div>
       </section>
 
       <section id="scope" className="bg-[#10261f] text-[#f8f4e8]">
@@ -409,7 +430,13 @@ export default function Home() {
               {config.operatorName || 'Independent public-storefront QA'} · Not
               affiliated with or endorsed by Shopify.
             </p>
-            <nav className="mt-2 flex gap-4">
+            <nav className="mt-2 flex flex-wrap gap-4">
+              <Link
+                href="/shopify-launch-migration-qa-checklist"
+                className="underline underline-offset-2"
+              >
+                QA checklist
+              </Link>
               <Link href="/privacy" className="underline underline-offset-2">
                 Privacy
               </Link>

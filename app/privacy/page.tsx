@@ -37,10 +37,8 @@ export default function PrivacyPage() {
           <section>
             <h2>Who controls the data</h2>
             <p>
-              {config.operatorName ||
-                '[OPERATOR NAME — REQUIRED BEFORE LAUNCH]'}{' '}
-              is the controller. Privacy questions, objections and complaints
-              can be sent to{' '}
+              Storefront HQ is the controller. Privacy questions, objections
+              and complaints can be sent to{' '}
               <a
                 href={
                   config.contactEmail

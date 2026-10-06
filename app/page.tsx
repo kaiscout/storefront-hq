@@ -366,7 +366,7 @@ export default function Home() {
             id="operator-heading"
             className="mt-3 text-3xl font-black tracking-tight"
           >
-            Run by {config.operatorName || 'Deniz Izci'}.
+            Run by the Storefront HQ team.
           </h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">
             Storefront HQ provides independent public-storefront quality
@@ -426,8 +426,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-7 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
           <div>
             <p>
-              {offer.brandName} ·{' '}
-              {config.operatorName || 'Independent public-storefront QA'} · Not
+              {offer.brandName} · Independent storefront QA team · Not
               affiliated with or endorsed by Shopify.
             </p>
             <nav className="mt-2 flex flex-wrap gap-4">

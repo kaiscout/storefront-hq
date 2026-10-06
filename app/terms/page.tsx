@@ -1,13 +1,11 @@
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
-import { publicConfig } from '@/lib/config';
 import { offer } from '@/lib/offer';
 
 export const dynamic = 'force-dynamic';
 
 export default function TermsPage() {
-  const config = publicConfig();
   return (
     <main className="min-h-screen bg-background px-5 py-10 text-foreground sm:px-8 sm:py-16">
       <article className="mx-auto max-w-3xl">
@@ -25,14 +23,11 @@ export default function TermsPage() {
         </h1>
         <div className="prose-qa mt-10 space-y-8 leading-7 text-muted-foreground">
           <section>
-            <h2>Operator and price</h2>
+            <h2>Service provider and price</h2>
             <p>
               The {offer.productName} is supplied under the {offer.brandName}{' '}
-              name by{' '}
-              {config.operatorName ||
-                '[OPERATOR NAME — REQUIRED BEFORE LAUNCH]'}{' '}
-              for a fixed £{offer.priceGbp} fee unless a written proposal says
-              otherwise.
+              name by the Storefront HQ team for a fixed £{offer.priceGbp} fee
+              unless a written proposal says otherwise.
             </p>
           </section>
           <section>

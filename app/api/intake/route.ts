@@ -8,6 +8,7 @@ import {
   normalizedSingleLine,
   readRequestBodyWithinLimit,
 } from '@/lib/intake';
+import { productIds } from '@/lib/products';
 
 const intakeSchema = z
   .object({
@@ -26,6 +27,11 @@ const intakeSchema = z
       .max(500)
       .refine(isPublicHttpsStoreUrl, 'Use a public HTTPS store URL')
       .transform((value) => new URL(value).origin),
+    productId: z.enum(productIds),
+    problem: z
+      .string()
+      .transform(normalizedSingleLine)
+      .pipe(z.string().min(10).max(1200)),
     consent: z.literal(true),
     website: z.string().max(500).optional(),
   })
@@ -33,9 +39,9 @@ const intakeSchema = z
 
 const maximumIntakeBodyBytes = 8 * 1024;
 
-async function inboundKey(email: string, storeUrl: string) {
+async function inboundKey(email: string, storeUrl: string, productId: string) {
   const bytes = new TextEncoder().encode(
-    `${email.toLowerCase()}|${new URL(storeUrl).hostname.toLowerCase()}`,
+    `${email.toLowerCase()}|${new URL(storeUrl).hostname.toLowerCase()}|${productId}`,
   );
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   const hex = Array.from(new Uint8Array(digest), (byte) =>
@@ -46,7 +52,7 @@ async function inboundKey(email: string, storeUrl: string) {
 
 export async function POST(request: Request) {
   const config = publicConfig();
-  if (!config.launchReady) {
+  if (!config.intakeReady) {
     return Response.json(
       { error: 'Intake is closed until the operator identity is configured.' },
       { status: 503 },
@@ -127,7 +133,11 @@ export async function POST(request: Request) {
     );
   const id = await createInboundLead({
     ...parsed.data,
-    sourceUrl: await inboundKey(parsed.data.contactEmail, parsed.data.storeUrl),
+    sourceUrl: await inboundKey(
+      parsed.data.contactEmail,
+      parsed.data.storeUrl,
+      parsed.data.productId,
+    ),
   });
   return Response.json(
     { ok: true, id, bookingUrl: config.calUrl || null },

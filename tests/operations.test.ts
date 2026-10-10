@@ -195,7 +195,7 @@ void test('public website enquiries remain quarantined until email ownership is 
 
   assert.match(
     databaseSource,
-    /'unverified-inbound', 'unverified-intake'[\s\S]*'Website availability request'[\s\S]*0, 100, 'discovered'/,
+    /'unverified-inbound', 'unverified-intake'[\s\S]*\?, \?, \?, 1, 100, 'discovered'[\s\S]*Website product enquiry:/,
   );
   assert.match(
     databaseSource,

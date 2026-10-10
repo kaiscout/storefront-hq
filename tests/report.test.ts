@@ -114,19 +114,40 @@ void test('audit coverage summary reports observed statuses without inference', 
 
 void test('top-three brief excludes incomplete and identical duplicates without padding', () => {
   const first = finding({ severity: 'critical' });
-  const result = topThreeFixes([first, { ...first, id: 'copy' }, finding({ title: 'Incomplete', recommendation: '' }), finding({ title: 'Second', severity: 'low' })]);
-  assert.deepEqual(result.map((item) => item.finding.title), ['Broken buying path', 'Second']);
+  const result = topThreeFixes([
+    first,
+    { ...first, id: 'copy' },
+    finding({ title: 'Incomplete', recommendation: '' }),
+    finding({ title: 'Second', severity: 'low' }),
+  ]);
+  assert.deepEqual(
+    result.map((item) => item.finding.title),
+    ['Broken buying path', 'Second'],
+  );
   assert.match(result[0].effort, /Not estimated/);
   assert.match(result[0].impact, /not been assessed/);
   assert.equal(topThreeFixes([]).length, 0);
 });
 
 void test('action brief uses recorded owner, impact, fix and acceptance check', () => {
-  const brief = findingActionBrief(finding({ recommendation: 'Fix: Repair the destination.\nWhy it matters: Customer cannot reach the guide.\nSuggested owner: Theme developer\nEffort: Confirm after theme review\nRetest: Follow the link; expect HTTP 200 and the guide.' }));
+  const brief = findingActionBrief(
+    finding({
+      recommendation:
+        'Fix: Repair the destination.\nWhy it matters: Customer cannot reach the guide.\nSuggested owner: Theme developer\nEffort: Confirm after theme review\nRetest: Follow the link; expect HTTP 200 and the guide.',
+    }),
+  );
   assert.equal(brief.owner, 'Theme developer');
   assert.equal(brief.fix, 'Repair the destination.');
   assert.match(brief.retest, /HTTP 200/);
-  assert.equal(findingActionBrief(finding({ recommendation: 'Fix: First action.\nSecond action.\nRetest: First check.\nSecond check.' })).fix, 'First action.\nSecond action.');
+  assert.equal(
+    findingActionBrief(
+      finding({
+        recommendation:
+          'Fix: First action.\nSecond action.\nRetest: First check.\nSecond check.',
+      }),
+    ).fix,
+    'First action.\nSecond action.',
+  );
   const csv = evidencePackCsv({ companyName: 'Store', findings: [finding()] });
   assert.ok(csv.indexOf('TOP THREE FIXES') < csv.indexOf('FULL FINDINGS'));
 });

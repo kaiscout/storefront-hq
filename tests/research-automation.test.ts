@@ -13,14 +13,23 @@ void test('scheduled research stays authenticated and does not call a network', 
   };
   try {
     for (const kind of ['discovery', 'source-watch'] as const) {
-      const request = new Request(`https://example.test/api/automation/${kind}`, {
-        method: 'POST',
-      });
-      const denied = await createDeferredResearchHandler(kind, () => false)(request);
+      const request = new Request(
+        `https://example.test/api/automation/${kind}`,
+        {
+          method: 'POST',
+        },
+      );
+      const denied = await createDeferredResearchHandler(
+        kind,
+        () => false,
+      )(request);
       assert.equal(denied.status, 401);
       assert.deepEqual(await denied.json(), { error: 'Unauthorized' });
 
-      const response = await createDeferredResearchHandler(kind, () => true)(request);
+      const response = await createDeferredResearchHandler(
+        kind,
+        () => true,
+      )(request);
       assert.equal(response.status, 200);
       const body = (await response.json()) as Record<string, unknown>;
       assert.equal(body.ok, true);
@@ -40,7 +49,10 @@ void test('scheduled research stays authenticated and does not call a network', 
         assert.equal(body.creditStatus, null);
         assert.deepEqual(body.changed, []);
         assert.equal(body.baselines, 0);
-        assert.match(String(body.reason), /no source content or snapshots were checked/);
+        assert.match(
+          String(body.reason),
+          /no source content or snapshots were checked/,
+        );
       }
     }
     assert.equal(networkCalls, 0);

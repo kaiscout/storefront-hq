@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 
-import { offer } from '@/lib/offer';
-
 import './globals.css';
 
 const geistSans = Geist({
@@ -19,8 +17,9 @@ const siteUrl = process.env.PUBLIC_SITE_URL?.trim() || 'http://localhost:3000';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: `${offer.brandName} | ${offer.deliveryHours}-Hour Shopify ${offer.productName}`,
-  description: `Changed your Shopify store? Get a prioritised public-storefront QA repair plan in ${offer.deliveryHours} hours. £${offer.priceGbp} fixed fee, ${offer.selectedFindings} fix-ready findings and ${offer.watchDays} days of regression watch. Implementation excluded.`,
+  title: 'Storefront HQ | Practical products for online sellers',
+  description:
+    'Launch tools, product-page help, urgent storefront diagnosis and monthly campaign packs for online sellers—from £19.',
   alternates: {
     canonical: '/',
   },
@@ -30,21 +29,21 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: '/',
-    title: `${offer.brandName} | ${offer.productName}`,
-    description: 'Reproducible findings. Fix-ready evidence.',
+    title: 'Storefront HQ | Build a store people can understand and buy from',
+    description: 'Practical tools and focused expert help for online sellers.',
     images: [
       {
         url: '/og.png',
         width: 1729,
         height: 910,
-        alt: `${offer.brandName} ${offer.productName} — reproducible findings and fix-ready evidence`,
+        alt: 'Storefront HQ — practical products and focused help for online sellers',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${offer.brandName} | ${offer.productName}`,
-    description: 'Reproducible findings. Fix-ready evidence.',
+    title: 'Storefront HQ | Practical products for online sellers',
+    description: 'Launch tools, focused services and monthly campaign packs.',
     images: ['/og.png'],
   },
 };

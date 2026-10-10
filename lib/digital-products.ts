@@ -1,0 +1,280 @@
+import type { ProductId } from './products.ts';
+
+type DigitalAsset = {
+  filename: string;
+  title: string;
+  contentType: string;
+  body: string;
+};
+
+const launchRoadmap = `# Storefront HQ — 14-Day Store Launch Roadmap
+
+Use this plan in order. Mark an item complete only when its acceptance check is true.
+
+## Days 1–2: Positioning
+- Write one sentence: “For [buyer], this shop provides [result] through [product difference].”
+- Choose one primary buyer and one primary use case for launch.
+- Remove homepage claims you cannot prove.
+
+Acceptance check: a first-time visitor can say what you sell, who it is for and why it is different after five seconds.
+
+## Days 3–4: Offer and catalogue
+- Select the 3–8 products you will actively launch.
+- Record price, variant, stock, fulfilment time and margin assumptions.
+- Choose one primary product for every campaign link.
+
+Acceptance check: every advertised variant can be selected and added to cart at the displayed price.
+
+## Days 5–6: Product pages
+- Complete the Product Page Framework for each launch product.
+- Add original product images covering scale, detail, context and packaging.
+- Put delivery timing, returns and material/care details near the buying decision.
+
+Acceptance check: the page answers “Is it for me?”, “What arrives?”, “When?” and “What if it is wrong?” without opening another tab.
+
+## Days 7–8: Trust and policies
+- Publish contact, shipping, returns and privacy pages.
+- Match every promotional promise to policy and checkout behaviour.
+- Remove fabricated scarcity, unsupported reviews and copied badges.
+
+Acceptance check: no promise contradicts another public page.
+
+## Days 9–10: Buying journey
+- Test homepage → collection → product → cart on mobile and desktop.
+- Test every variant, discount and delivery threshold used at launch.
+- Check empty, error and sold-out states.
+
+Acceptance check: a new visitor can reach the payment step without confusion or a broken path.
+
+## Days 11–12: Campaign build
+- Complete the Campaign Planner.
+- Write one message for one audience and one destination page.
+- Prepare launch, reminder and final-call versions without false urgency.
+
+Acceptance check: every campaign link lands on a page that continues the same promise.
+
+## Days 13–14: Rehearsal and release
+- Run the QA checklist in a clean browser and on a real phone.
+- Fix launch blockers first; record non-blocking improvements separately.
+- Record baseline orders, conversion and returns only from systems you lawfully control.
+
+Acceptance check: the named owner approves the launch checklist and knows how to pause promotion if the buying path fails.
+`;
+
+const pageFramework = `# Storefront HQ — Product Page Copy Framework
+
+## 1. Product title
+Use the clearest product name first. Add a meaningful differentiator only when it helps selection.
+
+## 2. One-line promise
+[Product] helps [specific buyer] achieve [observable result] without [important friction].
+
+## 3. Three decision-making benefits
+1. **Benefit:** what improves for the buyer. **Proof:** feature, material, specification or demonstration that supports it.
+2. **Benefit:** …
+3. **Benefit:** …
+
+## 4. What arrives
+- Quantity and dimensions
+- Materials or ingredients
+- Included accessories
+- Packaging and condition
+
+## 5. Best for / not for
+**Best for:** [three honest use cases]
+**Not designed for:** [important limitation]
+
+## 6. Selection help
+Explain variants in buyer language. Include size, fit, colour or compatibility guidance before the add-to-cart control.
+
+## 7. Delivery and returns
+- Dispatch estimate:
+- Delivery estimate and region:
+- Return window and condition:
+- Exceptions:
+
+## 8. FAQ
+Answer the five questions that could stop a reasonable customer buying. Avoid questions invented only to repeat marketing claims.
+
+## 9. Search fields
+SEO title (approximately 50–60 characters):
+Meta description (approximately 140–160 characters):
+
+## Acceptance check
+Ask someone unfamiliar with the product to describe what they would receive, which option to select, the likely delivery window and the return rule.
+`;
+
+const homeFramework = `# Storefront HQ — Homepage Framework
+
+1. **Announcement:** one current operational or promotional fact; link its terms.
+2. **Hero:** what you sell, who it helps, one credible reason to care, one primary action.
+3. **Shop path:** 3–6 categories or use cases written in customer language.
+4. **Proof:** specific materials, process, independent evidence or verified customer feedback. Label demonstrations honestly.
+5. **Featured product:** a real buying choice, not another “learn more” loop.
+6. **Delivery and returns:** the essential promise in plain language with policy links.
+7. **About:** why this shop exists and who is accountable.
+8. **Footer:** contact, shipping, returns, privacy, terms and business details where required.
+
+## Five-second check
+Cover the logo and ask: What does this business sell? Who is it for? What should I click next?
+`;
+
+const trustChecklist = `# Storefront HQ — Shipping, Returns and Trust Checklist
+
+## Shipping
+- [ ] Dispatch time is separate from carrier transit time.
+- [ ] Regions, fees and free-shipping thresholds are explicit.
+- [ ] Product-page, announcement and checkout promises agree.
+- [ ] Duties and import-tax uncertainty is explained where relevant.
+
+## Returns
+- [ ] Return window starts from a clearly defined event.
+- [ ] Product-condition requirements are understandable.
+- [ ] Exclusions and return postage responsibility are explicit.
+- [ ] Refund timing and method are stated.
+
+## Product trust
+- [ ] Claims are supported and limitations are visible.
+- [ ] Reviews are genuine, attributable and not selectively misleading.
+- [ ] Images accurately represent the supplied product.
+- [ ] Safety, compatibility and age restrictions are shown where relevant.
+
+## Business trust
+- [ ] A working contact route is easy to find.
+- [ ] Policies identify the responsible business where legally required.
+- [ ] Privacy and cookie behaviour match the site.
+- [ ] Payment, platform or certification endorsement is never implied without permission.
+
+This checklist is operational guidance, not legal advice. Check the rules that apply to your products and selling regions.
+`;
+
+const qaChecklist = `# Storefront HQ — Pre-Launch QA Checklist
+
+Test on a real phone and desktop in a clean browser. Record the exact URL, time, browser, steps, observed result and expected result for every failure.
+
+- [ ] Homepage primary action reaches the intended page.
+- [ ] Collection filters, sorting and pagination preserve valid results.
+- [ ] Product media loads and meaningful images have useful alternative text.
+- [ ] Every available variant selects, prices and adds correctly.
+- [ ] Sold-out combinations cannot be bought accidentally.
+- [ ] Cart retains product, variant, quantity and displayed price.
+- [ ] Promotion codes and thresholds match public claims.
+- [ ] Delivery and returns links work from product and footer areas.
+- [ ] Contact and policy pages load without placeholder content.
+- [ ] Forms show a useful success and failure state.
+- [ ] Keyboard focus is visible and controls have understandable names.
+- [ ] Campaign URLs open the intended live page with no redirect loop.
+- [ ] Checkout can be reached, but do not place a real order unless authorised.
+- [ ] Analytics and consent tools are checked by an authorised owner.
+
+Prioritise blockers to product selection, cart, checkout, pricing or trust before cosmetic inconsistencies.
+`;
+
+const campaignPlanner = `campaign_name,audience,customer_problem,offer_or_message,destination_url,launch_date,owner,primary_metric,status,notes
+Example launch campaign,First-time buyers,Unsure which option fits,Plain-language comparison guide,https://example.com/pages/compare,YYYY-MM-DD,Name,Qualified product-page visits,Draft,Replace this row
+`;
+
+const salesTracker = `date,channel,campaign,spend_gbp,sessions,orders,revenue_gbp,refunds_gbp,notes
+YYYY-MM-DD,Email,Example launch,0,0,0,0,0,Use figures from systems you control
+`;
+
+const photoPlanner = `shot_number,purpose,scene_or_angle,product_detail_to_prove,format,owner,status,notes
+1,Cover image,Clear product on uncluttered background,Shape and supplied colour,Square,Name,Planned,
+2,Scale,Product beside familiar object or in use,Real-world size,Portrait,Name,Planned,
+3,Detail,Close-up,Material or finish,Square,Name,Planned,
+4,Use,Primary use case,How the product works,Portrait,Name,Planned,
+5,Package,Everything the buyer receives,Included contents,Landscape,Name,Planned,
+`;
+
+const campaignClubStarter = `# Seller Campaign Club — Starter Campaign Pack
+
+## Campaign: “One useful change”
+Choose one customer problem your product genuinely resolves. Build every asset around the same claim and destination page.
+
+### Four-email sequence
+1. **Problem recognition:** describe the familiar situation without exaggeration. Link to the most relevant guide or product.
+2. **Decision help:** explain who the product is and is not for. Answer the leading objection.
+3. **Proof and use:** show the product in context and explain what makes the claim credible.
+4. **Reminder:** summarise the offer, delivery/returns facts and any real deadline. Never invent scarcity.
+
+### Twelve prompt angles
+Before/after process; common selection mistake; material close-up; founder decision; three use cases; not-for-everyone qualifier; packing view; delivery explainer; customer question; comparison table; care tip; behind-the-scenes check.
+
+### Homepage strip
+Headline: [Specific customer result]
+Supporting line: [Who it is for] + [credible differentiator]
+Button: Shop [clear category]
+
+### Measurement
+Record delivered emails, qualified clicks, product-page sessions, orders and refunds from systems you control. Do not treat impressions as sales.
+`;
+
+export const digitalAssets: Partial<
+  Record<ProductId, readonly DigitalAsset[]>
+> = {
+  'store-launch-kit': [
+    {
+      filename: '01-14-day-launch-roadmap.md',
+      title: '14-day launch roadmap',
+      contentType: 'text/markdown; charset=utf-8',
+      body: launchRoadmap,
+    },
+    {
+      filename: '02-product-page-framework.md',
+      title: 'Product page framework',
+      contentType: 'text/markdown; charset=utf-8',
+      body: pageFramework,
+    },
+    {
+      filename: '03-homepage-framework.md',
+      title: 'Homepage framework',
+      contentType: 'text/markdown; charset=utf-8',
+      body: homeFramework,
+    },
+    {
+      filename: '04-shipping-returns-trust.md',
+      title: 'Shipping, returns and trust checklist',
+      contentType: 'text/markdown; charset=utf-8',
+      body: trustChecklist,
+    },
+    {
+      filename: '05-pre-launch-qa.md',
+      title: 'Pre-launch QA checklist',
+      contentType: 'text/markdown; charset=utf-8',
+      body: qaChecklist,
+    },
+    {
+      filename: '06-campaign-planner.csv',
+      title: 'Campaign planner',
+      contentType: 'text/csv; charset=utf-8',
+      body: campaignPlanner,
+    },
+    {
+      filename: '07-sales-tracker.csv',
+      title: 'Sales tracker',
+      contentType: 'text/csv; charset=utf-8',
+      body: salesTracker,
+    },
+    {
+      filename: '08-product-photo-planner.csv',
+      title: 'Product photo planner',
+      contentType: 'text/csv; charset=utf-8',
+      body: photoPlanner,
+    },
+  ],
+  'seller-campaign-club': [
+    {
+      filename: 'campaign-club-starter-pack.md',
+      title: 'Campaign Club starter pack',
+      contentType: 'text/markdown; charset=utf-8',
+      body: campaignClubStarter,
+    },
+  ],
+};
+
+export function getDigitalAsset(productId: ProductId, filename: string) {
+  return (
+    digitalAssets[productId]?.find((asset) => asset.filename === filename) ??
+    null
+  );
+}

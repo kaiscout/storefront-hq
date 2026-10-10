@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  classifyProductCheckout,
   classifyStripeRevenueOutcome,
   isClearedCheckoutPayment,
   isExpectedLiveCheckoutPayment,
@@ -9,6 +10,43 @@ import {
   shouldApplyStripeSessionOutcome,
   stripeWebhookEventSchema,
 } from '../lib/payments.ts';
+
+void test('new product checkouts require the exact live link, GBP amount and event state', () => {
+  const paymentLinks = {
+    'store-launch-kit': 'plink_launch',
+    'product-page-rescue': 'plink_rescue',
+    'store-emergency-check': 'plink_emergency',
+    'seller-campaign-club': 'plink_club',
+  } as const;
+  assert.deepEqual(
+    classifyProductCheckout(
+      {
+        eventType: 'checkout.session.completed',
+        livemode: true,
+        paymentStatus: 'paid',
+        paymentLink: 'plink_emergency',
+        amountTotal: 9_900,
+        currency: 'gbp',
+      },
+      paymentLinks,
+    ),
+    { productId: 'store-emergency-check', outcome: 'cleared_expected' },
+  );
+  assert.deepEqual(
+    classifyProductCheckout(
+      {
+        eventType: 'checkout.session.completed',
+        livemode: true,
+        paymentStatus: 'paid',
+        paymentLink: 'plink_emergency',
+        amountTotal: 3_900,
+        currency: 'gbp',
+      },
+      paymentLinks,
+    ),
+    { productId: null, outcome: 'unexpected_checkout' },
+  );
+});
 
 void test('only cleared Stripe Checkout events unlock fulfilment', () => {
   assert.equal(

@@ -278,11 +278,11 @@ void test('inbound consultant replies answer the buyer context before proposing 
     operatorName: 'Deniz',
   });
   assert.equal(reply.subject, 'Re: Pricing and turnaround?');
-  assert.match(reply.body, /fixed at £895 GBP/);
-  assert.match(reply.body, /within 48 hours/);
+  assert.match(reply.body, /Store Emergency Check at £99/);
+  assert.match(reply.body, /Initial diagnosis within 24 hours/);
   assert.match(reply.body, /do not need a Shopify admin login/);
   assert.match(reply.body, /https:\/\/example-store\.test/);
-  assert.match(reply.body, /three routes that matter most commercially/);
+  assert.match(reply.body, /single most important problem or deadline/);
   assert.match(reply.body, /https:\/\/cal\.example\.test\/fit/);
   assert.doesNotMatch(reply.body, /guaranteed|conversion uplift/i);
 });

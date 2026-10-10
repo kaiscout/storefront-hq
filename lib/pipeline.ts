@@ -1,4 +1,4 @@
-import { offer } from './offer.ts';
+import { products } from './products.ts';
 
 export const pipelineStatuses = [
   'discovered',
@@ -559,13 +559,13 @@ export function buildProposal(input: {
     ? `I checked the public storefront and confirmed one concrete issue: ${input.proofSummary}`
     : 'I can begin with a five-page public-storefront preflight before you commit.';
   const booking = input.calUrl
-    ? `\n\nIf a short fit check is useful, here is my ${offer.handoffMinutes}-minute calendar: ${input.calUrl}`
+    ? `\n\nIf a short fit check is useful, here is my calendar: ${input.calUrl}`
     : '';
   const operatorName = input.operatorName?.trim() || '[OPERATOR NAME]';
   const greeting = input.contactName?.trim() || `${input.companyName} team`;
   return {
-    subject: `${offer.deliveryHours}-hour storefront QA for ${input.companyName}`,
-    body: `Hello ${greeting},\n\nI’m responding to your request, “${input.sourceTitle}.” ${proof}\n\nI offer the fixed £${offer.priceGbp} ${offer.productName}: up to ${offer.pageLimit} public pages, ${offer.selectedFindings} reproducible findings with screenshots and fix-ready recommendations, plus ${offer.watchDays} days of checks on ${offer.watchRouteLimit} critical routes. Delivery is within ${offer.deliveryHours} hours. If the delivered pack contains fewer than ${offer.minimumFindings} reproducible, actionable issues within the agreed public scope, you may request a full refund within seven days.\n\nThere is no backend access, retainer, or implementation upsell.${booking}\n\nBest,\n${operatorName}`,
+    subject: `Focused storefront help for ${input.companyName}`,
+    body: `Hello ${greeting},\n\nI’m responding to your request, “${input.sourceTitle}.” ${proof}\n\nThe closest Storefront HQ option is the £99 Store Emergency Check: one reported public-storefront problem, reproduced with browser evidence, repair direction, an acceptance check and one public retest after your repair. The initial diagnosis is delivered within 24 hours after cleared payment and receipt of the required public URLs. No admin access or implementation is included.\n\nIf the real need is copy and decision clarity on one product URL rather than a defect, the narrower Product Page Rescue is £79 with delivery within two business days. I would confirm which of those two scopes actually fits before sharing a payment link.${booking}\n\nBest,\n${operatorName}`,
   };
 }
 
@@ -601,30 +601,40 @@ export function buildInboundConsultantReply(input: {
     ? `\n\nYou wrote: “${normalizedMessage}”`
     : '';
   const haystack = `${subjectText} ${normalizedMessage}`.toLowerCase();
+  const recommendation =
+    /\b(broken|bug|error|urgent|checkout|cart|not working|failed|audit|qa|diagnos)\b/.test(
+      haystack,
+    )
+      ? products.find((product) => product.id === 'store-emergency-check')!
+      : /\b(product page|description|copy|seo|listing)\b/.test(haystack)
+        ? products.find((product) => product.id === 'product-page-rescue')!
+        : /\b(campaign|marketing|email|social|content)\b/.test(haystack)
+          ? products.find((product) => product.id === 'seller-campaign-club')!
+          : products.find((product) => product.id === 'store-launch-kit')!;
   const directAnswers: string[] = [];
   if (/\b(price|pricing|cost|how much|budget|invoice)\b/.test(haystack))
     directAnswers.push(
-      `Price: the sprint is fixed at £${offer.priceGbp} GBP, paid before work begins. I only share the payment link after we confirm fit and scope.`,
+      `Price: the closest option is ${recommendation.name} at £${recommendation.priceGbp}${recommendation.billing === 'monthly' ? ' per month until cancelled' : ' as a one-time payment'}.`,
     );
   if (/\b(when|timeline|turnaround|how long|deadline|deliver)\b/.test(haystack))
     directAnswers.push(
-      `Timing: delivery is within ${offer.deliveryHours} hours after cleared payment and confirmation of the public routes in scope.`,
+      `Timing: ${recommendation.turnaround}. For a service, the clock starts after cleared payment and receipt of the required public URL and context.`,
     );
   if (/\b(scope|include|included|pages|report|findings|audit)\b/.test(haystack))
-    directAnswers.push(
-      `Scope: I crawl up to ${offer.pageLimit} public storefront pages and curate exactly ${offer.selectedFindings} reproducible, fix-ready findings with evidence and recommendations.`,
-    );
+    directAnswers.push(`Scope: ${recommendation.description}`);
   if (/\b(access|backend|admin|customer data|login)\b/.test(haystack))
     directAnswers.push(
-      'Access: I do not need a Shopify admin login, customer data, passwords, or backend access; the sprint is limited to the public storefront.',
+      'Access: I do not need a Shopify admin login, customer data, passwords, or backend access; the focused services use only the public storefront.',
     );
   if (/\b(watch|regression|monitor|after)\b/.test(haystack))
     directAnswers.push(
-      `Follow-through: the handoff includes ${offer.handoffMinutes} minutes together and a ${offer.watchDays}-day regression watch on up to ${offer.watchRouteLimit} client-approved public routes.`,
+      recommendation.id === 'store-emergency-check'
+        ? 'Follow-through: one public retest of the same reported issue is included after your team implements the repair.'
+        : `Follow-through is limited to the deliverables listed for ${recommendation.name}; there is no implementation or open-ended retainer.`,
     );
   if (!directAnswers.length)
     directAnswers.push(
-      `The fixed sprint covers up to ${offer.pageLimit} public pages, exactly ${offer.selectedFindings} fix-ready findings, a ${offer.handoffMinutes}-minute handoff, and ${offer.watchDays} days of regression checks on up to ${offer.watchRouteLimit} agreed routes.`,
+      `Based on the message, the closest starting point is ${recommendation.name}: ${recommendation.promise} The price is £${recommendation.priceGbp}${recommendation.billing === 'monthly' ? '/month' : ' one-time'}.`,
     );
   const store = input.storeUrl
     ? `I’ll use ${input.storeUrl} as the storefront starting point.`
@@ -632,16 +642,16 @@ export function buildInboundConsultantReply(input: {
   const classificationNote = input.alreadyBooked
     ? 'Thanks for the note. I’ll use the fit call already on the calendar to confirm the remaining commercial details.'
     : input.classification === 'question'
-      ? 'I’ve answered the concrete points I can confirm from the fixed scope below.'
+      ? 'I’ve answered the concrete points I can confirm from the published product scopes below.'
       : 'Thanks for the clear interest. I want to keep the next step specific and low-friction.';
   const booking = input.alreadyBooked
-    ? `\n\nThere is no need to book again. I’ll use the scheduled ${offer.handoffMinutes}-minute fit call to confirm the agreed routes, scope boundary, and payment decision.`
+    ? `\n\nThere is no need to book again. I’ll use the scheduled fit call to confirm the exact product, public URL and scope boundary.`
     : input.calUrl
-      ? `\n\nIf those points fit, choose a ${offer.handoffMinutes}-minute fit call here: ${input.calUrl}`
+      ? `\n\nIf those points fit, choose a short fit call here: ${input.calUrl}`
       : '';
 
   return {
     subject,
-    body: `Hello ${greeting},\n\n${classificationNote}${context}\n\n${directAnswers.join('\n\n')}\n\nHow I would proceed:\n1. ${store}\n2. Confirm the change or launch that makes this urgent and the three routes that matter most commercially.\n3. Confirm that the work stays within the fixed public-storefront scope.\n4. Once fit is confirmed, I send the existing payment link and begin only after the £${offer.priceGbp} GBP payment has cleared.\n5. Within ${offer.deliveryHours} hours, you receive the evidence pack; I do not pad it with raw crawler output or unverifiable claims.${booking}\n\nIf you reply by email instead, please include the priority customer journey and any known device, browser, market, or language where the issue appears. That lets me make the fit decision against the real risk rather than give you generic storefront advice.\n\nBest,\n${operatorName}`,
+    body: `Hello ${greeting},\n\n${classificationNote}${context}\n\n${directAnswers.join('\n\n')}\n\nHow I would proceed:\n1. ${store}\n2. Confirm the single most important problem or deadline.\n3. Confirm that ${recommendation.name} is the narrowest product that fits.\n4. For a service, I share its payment link only after the public scope is clear; work begins only after payment clears and the required input arrives.\n5. I deliver only the published product outputs—no padded scanner dump or unverifiable promise.${booking}\n\nIf you reply by email, include the relevant public URL and any device, browser, market or language where the issue appears.\n\nBest,\n${operatorName}`,
   };
 }

@@ -40,7 +40,7 @@ void test('agency enquiry asks for release fit before payment', () => {
   const url = new URL(href);
   assert.equal(url.protocol, 'mailto:');
   assert.equal(url.pathname, businessContactEmail);
-  assert.match(url.searchParams.get('subject') || '', /Agency partner enquiry/);
+  assert.match(url.searchParams.get('subject') || '', /Agency enquiry/);
   assert.match(
     url.searchParams.get('body') || '',
     /Launch, migration or release date:/,
@@ -51,7 +51,7 @@ void test('agency enquiry asks for release fit before payment', () => {
   );
   assert.match(
     url.searchParams.get('body') || '',
-    /fixed £895 public-storefront scope/,
+    /Product Page Rescue \/ Store Emergency Check/,
   );
   assert.match(
     url.searchParams.get('body') || '',

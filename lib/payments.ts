@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { offer } from './offer.ts';
+import { products, type ProductId } from './products.ts';
 
 export const stripeWebhookEventSchema = z.object({
   id: z.string().min(1).max(255),
@@ -49,6 +50,40 @@ export type StripeRevenueOutcome =
   | 'failed_expected'
   | 'unexpected_checkout'
   | 'ignored_event';
+
+export type ProductCheckoutClassification = {
+  productId: ProductId | null;
+  outcome: StripeRevenueOutcome;
+};
+
+export function classifyProductCheckout(
+  payment: CheckoutPayment,
+  paymentLinkIds: Partial<Record<ProductId, string>>,
+): ProductCheckoutClassification {
+  const relevantEvent = [
+    'checkout.session.completed',
+    'checkout.session.async_payment_succeeded',
+    'checkout.session.async_payment_failed',
+  ].includes(payment.eventType);
+  if (!relevantEvent) return { productId: null, outcome: 'ignored_event' };
+  const product = products.find(
+    (candidate) =>
+      paymentLinkIds[candidate.id]?.trim() &&
+      payment.paymentLink === paymentLinkIds[candidate.id]?.trim(),
+  );
+  if (
+    !product ||
+    payment.livemode !== true ||
+    payment.amountTotal !== product.amountPence ||
+    payment.currency?.toLowerCase() !== 'gbp'
+  )
+    return { productId: null, outcome: 'unexpected_checkout' };
+  if (payment.eventType === 'checkout.session.async_payment_failed')
+    return { productId: product.id, outcome: 'failed_expected' };
+  if (isClearedCheckoutPayment(payment.eventType, payment.paymentStatus))
+    return { productId: product.id, outcome: 'cleared_expected' };
+  return { productId: product.id, outcome: 'pending_expected' };
+}
 
 export const stripeRevenueOutcomeRank = {
   pending_expected: 1,

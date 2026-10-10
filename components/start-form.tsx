@@ -9,13 +9,16 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { websiteConfirmationSubject } from '@/lib/intake';
+import { products, type ProductId } from '@/lib/products';
 
 export function StartForm({
   enabled,
   contactEmail,
+  initialProductId,
 }: {
   enabled: boolean;
   contactEmail: string;
+  initialProductId?: ProductId;
 }) {
   const [state, setState] = useState<
     'idle' | 'submitting' | 'success' | 'error'
@@ -36,6 +39,8 @@ export function StartForm({
       contactName: value('contactName'),
       contactEmail: value('contactEmail'),
       storeUrl: value('storeUrl'),
+      productId: value('productId'),
+      problem: value('problem'),
       consent: formData.get('consent') === 'on',
       website: value('website'),
     };
@@ -67,15 +72,15 @@ export function StartForm({
           Request received.
         </h2>
         <p className="mt-2 leading-7">
-          We’ll first confirm that your store fits the fixed scope. No backend
-          invitation is needed.
+          We’ll review the problem and point you to the narrowest useful option.
+          No backend invitation is needed.
         </p>
         <p className="mt-3 text-sm leading-6">
           To prevent someone entering another person’s address, this form never
           triggers an automatic email. For the fastest response,{' '}
           <a
             className="font-bold underline underline-offset-4"
-            href={`mailto:${contactEmail}?subject=${encodeURIComponent(websiteConfirmationSubject(intakeId))}&body=${encodeURIComponent("I'm interested in the Storefront QA Sprint and submitted my public storefront through storefronthq.co.uk. Please confirm the next steps.")}`}
+            href={`mailto:${contactEmail}?subject=${encodeURIComponent(websiteConfirmationSubject(intakeId))}&body=${encodeURIComponent('I submitted a Storefront HQ product enquiry through storefronthq.co.uk. Please confirm the next step for my request.')}`}
           >
             confirm from your work email
           </a>{' '}
@@ -86,7 +91,7 @@ export function StartForm({
             className="mt-5 inline-flex items-center gap-2 font-bold underline underline-offset-4"
             href={bookingUrl}
           >
-            Choose a 20-minute fit call <ArrowRight className="size-4" />
+            Choose a short fit call <ArrowRight className="size-4" />
           </a>
         ) : null}
       </div>
@@ -119,6 +124,27 @@ export function StartForm({
         </div>
       </div>
       <div className="space-y-2">
+        <Label htmlFor="productId">Product you are considering</Label>
+        <select
+          id="productId"
+          name="productId"
+          defaultValue={initialProductId ?? ''}
+          required
+          disabled={!enabled}
+          className="h-11 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="" disabled>
+            Choose one
+          </option>
+          {products.map((product) => (
+            <option key={product.id} value={product.id}>
+              {product.name} — £{product.priceGbp}
+              {product.billing === 'monthly' ? '/month' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-2">
         <Label htmlFor="storeUrl">Live Shopify store URL</Label>
         <Input
           id="storeUrl"
@@ -128,6 +154,19 @@ export function StartForm({
           placeholder="https://your-store.com"
           required
           disabled={!enabled}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="problem">What is the main problem or deadline?</Label>
+        <textarea
+          id="problem"
+          name="problem"
+          required
+          minLength={10}
+          maxLength={1200}
+          disabled={!enabled}
+          placeholder="What is happening, where does it happen, and when do you need to act?"
+          className="min-h-28 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
       <div className="space-y-2">
@@ -150,7 +189,7 @@ export function StartForm({
         <Checkbox id="consent" name="consent" required disabled={!enabled} />
         <Label htmlFor="consent" className="text-sm font-normal leading-6">
           You may use these details to assess this request and reply about the
-          QA sprint. I have read the{' '}
+          selected product. I have read the{' '}
           <Link
             href="/privacy"
             className="font-semibold underline underline-offset-2"
@@ -172,7 +211,7 @@ export function StartForm({
           </>
         ) : (
           <>
-            Request a fit check <ArrowRight />
+            Send product enquiry <ArrowRight />
           </>
         )}
       </Button>

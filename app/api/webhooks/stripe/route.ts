@@ -5,10 +5,13 @@ import {
   failWebhookEvent,
   getLead,
   listLeadsByEmail,
+  recordCommerceOrder,
   recordStripeCheckoutOutcome,
   setLeadNextAction,
 } from '@/lib/database';
+import { productCheckoutConfig } from '@/lib/config';
 import {
+  classifyProductCheckout,
   classifyStripeRevenueOutcome,
   resolveStripePaymentLead,
   stripeRevenueOutcomeRank,
@@ -74,6 +77,59 @@ export async function POST(request: Request) {
 
   try {
     const object = event.data.object;
+    const commerceConfig = productCheckoutConfig();
+    const productCheckout = classifyProductCheckout(
+      {
+        eventType: event.type,
+        livemode: event.livemode,
+        paymentStatus: object.payment_status,
+        paymentLink: object.payment_link,
+        amountTotal: object.amount_total,
+        currency: object.currency,
+      },
+      Object.fromEntries(
+        Object.entries(commerceConfig).map(([productId, config]) => [
+          productId,
+          config.paymentLinkId,
+        ]),
+      ),
+    );
+    if (
+      productCheckout.productId &&
+      isStoredOutcome(productCheckout.outcome) &&
+      object.id
+    ) {
+      const customerEmail = object.customer_details?.email ?? null;
+      const referencedLead = object.client_reference_id
+        ? await getLead(object.client_reference_id)
+        : null;
+      const order = await recordCommerceOrder({
+        sessionId: object.id,
+        productId: productCheckout.productId,
+        eventId: event.id,
+        eventCreated: event.created,
+        outcome: productCheckout.outcome,
+        leadId: referencedLead?.id ?? null,
+        customerEmail,
+        amountTotal: object.amount_total,
+        currency: object.currency,
+        paymentStatus: object.payment_status,
+      });
+      const result = {
+        ok: true,
+        commerce: true,
+        productId: productCheckout.productId,
+        outcome: productCheckout.outcome,
+        sessionId: object.id,
+        applied: order.applied,
+        leadId: referencedLead?.id ?? null,
+        amountTotal: object.amount_total ?? null,
+        currency: object.currency?.toLowerCase() ?? null,
+        paymentStatus: object.payment_status ?? null,
+      };
+      await completeWebhookEvent('stripe', event.id, result);
+      return Response.json(result);
+    }
     const observedOutcome = classifyStripeRevenueOutcome(
       {
         eventType: event.type,

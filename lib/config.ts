@@ -1,3 +1,5 @@
+import { products, type ProductId } from './products.ts';
+
 function operatorOwnerEmails() {
   return (process.env.OPS_OWNER_EMAIL ?? '')
     .split(',')
@@ -58,14 +60,58 @@ function liveStripeCheckoutUrl(value: string) {
   }
 }
 
+export function productCheckoutConfig() {
+  return Object.fromEntries(
+    products.map((product) => {
+      const checkoutUrl = liveStripeCheckoutUrl(
+        process.env[product.envCheckoutUrl] ?? '',
+      );
+      const paymentLinkId = process.env[product.envPaymentLinkId]?.trim() ?? '';
+      const sellerIdentityReady = Boolean(
+        process.env.PUBLIC_BUSINESS_NAME?.trim() &&
+        process.env.PUBLIC_BUSINESS_ADDRESS?.trim(),
+      );
+      return [
+        product.id,
+        {
+          checkoutUrl,
+          paymentLinkId,
+          ready: Boolean(checkoutUrl && paymentLinkId && sellerIdentityReady),
+        },
+      ];
+    }),
+  ) as Record<
+    ProductId,
+    { checkoutUrl: string; paymentLinkId: string; ready: boolean }
+  >;
+}
+
+export function checkoutUrlForProduct(productId: ProductId, leadId?: string) {
+  const base = productCheckoutConfig()[productId].checkoutUrl;
+  if (!base) return '';
+  const url = new URL(base);
+  if (leadId) url.searchParams.set('client_reference_id', leadId);
+  return url.href;
+}
+
 export function publicConfig() {
   const operatorName = process.env.PUBLIC_OPERATOR_NAME?.trim() ?? '';
+  const businessName = process.env.PUBLIC_BUSINESS_NAME?.trim() ?? '';
+  const businessAddress = process.env.PUBLIC_BUSINESS_ADDRESS?.trim() ?? '';
   const contactEmail = process.env.PUBLIC_CONTACT_EMAIL?.trim() ?? '';
   const calUrl = process.env.CAL_BOOKING_URL?.trim() ?? '';
   const configuredCheckoutUrl = process.env.CHECKOUT_URL ?? '';
   const checkoutUrl = liveStripeCheckoutUrl(configuredCheckoutUrl);
   const siteUrl = process.env.PUBLIC_SITE_URL?.replace(/\/$/, '') ?? '';
   const operatorOwners = operatorOwnerEmails();
+  const productCheckouts = productCheckoutConfig();
+  const intakeReady = Boolean(
+    operatorName &&
+    contactEmail &&
+    operatorOwners.length &&
+    process.env.AUTOMATION_SECRET?.trim() &&
+    siteUrl.startsWith('https://'),
+  );
   const launchReady = Boolean(
     operatorName &&
     contactEmail &&
@@ -82,9 +128,13 @@ export function publicConfig() {
   );
   return {
     operatorName,
+    businessName,
+    businessAddress,
     contactEmail,
     calUrl,
     checkoutUrl,
+    productCheckouts,
+    intakeReady,
     siteUrl,
     launchReady,
   };

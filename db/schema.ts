@@ -301,6 +301,30 @@ export const stripeCheckoutSessions = sqliteTable(
   ],
 );
 
+export const commerceOrders = sqliteTable(
+  'commerce_orders',
+  {
+    sessionId: text('session_id').primaryKey(),
+    productId: text('product_id').notNull(),
+    outcome: text('outcome').notNull(),
+    outcomeRank: integer('outcome_rank').notNull(),
+    eventCreated: integer('event_created').notNull(),
+    eventId: text('event_id').notNull(),
+    leadId: text('lead_id'),
+    customerEmail: text('customer_email'),
+    amountTotal: integer('amount_total'),
+    currency: text('currency'),
+    paymentStatus: text('payment_status'),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('idx_commerce_orders_outcome').on(table.outcome, table.updatedAt),
+    index('idx_commerce_orders_email').on(table.customerEmail, table.updatedAt),
+  ],
+);
+
 export const calBookings = sqliteTable(
   'cal_bookings',
   {

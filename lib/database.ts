@@ -171,6 +171,22 @@ const schemaStatements = [
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
   `CREATE INDEX IF NOT EXISTS idx_stripe_checkout_outcome ON stripe_checkout_sessions(outcome, updated_at)`,
+  `CREATE TABLE IF NOT EXISTS commerce_orders (
+    session_id TEXT PRIMARY KEY,
+    product_id TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    outcome_rank INTEGER NOT NULL,
+    event_created INTEGER NOT NULL,
+    event_id TEXT NOT NULL,
+    lead_id TEXT,
+    customer_email TEXT,
+    amount_total INTEGER,
+    currency TEXT,
+    payment_status TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_commerce_orders_outcome ON commerce_orders(outcome, updated_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_commerce_orders_email ON commerce_orders(customer_email, updated_at)`,
   `CREATE TABLE IF NOT EXISTS cal_bookings (
     booking_uid TEXT PRIMARY KEY,
     attendee_email TEXT,
@@ -964,6 +980,8 @@ export async function createInboundLead(input: {
   contactEmail: string;
   storeUrl: string;
   sourceUrl: string;
+  productId?: string;
+  problem?: string;
 }) {
   await ensureSchema();
   const id = crypto.randomUUID();
@@ -971,8 +989,8 @@ export async function createInboundLead(input: {
     .prepare(
       `INSERT INTO leads (
         id, company_name, store_url, contact_name, contact_email, contact_channel,
-        contact_permission, source_url, source_title, explicit_intent, fit_score, status, next_action
-      ) VALUES (?, ?, ?, ?, ?, 'unverified-inbound', 'unverified-intake', ?, 'Website availability request', 0, 100, 'discovered', 'Await email ownership confirmation or Cal booking; never contact from intake alone')
+        contact_permission, source_url, source_title, source_excerpt, explicit_intent, fit_score, status, next_action
+      ) VALUES (?, ?, ?, ?, ?, 'unverified-inbound', 'unverified-intake', ?, ?, ?, 1, 100, 'discovered', 'Review product fit; await email ownership confirmation or Cal booking; never contact from intake alone')
       ON CONFLICT(source_url) DO NOTHING`,
     )
     .bind(
@@ -982,6 +1000,8 @@ export async function createInboundLead(input: {
       input.contactName,
       input.contactEmail.toLowerCase(),
       input.sourceUrl,
+      `Website product enquiry: ${input.productId ?? 'unspecified'}`,
+      input.problem?.slice(0, 1800) ?? null,
     )
     .run();
   const stored = await d1()
@@ -2276,6 +2296,92 @@ export async function recordStripeCheckoutOutcome(input: {
     leadId: current.lead_id,
     eventCreated: current.event_created,
   };
+}
+
+export async function recordCommerceOrder(input: {
+  sessionId: string;
+  productId: string;
+  eventId: string;
+  eventCreated: number;
+  outcome: StoredStripeCheckoutOutcome;
+  leadId?: string | null;
+  customerEmail?: string | null;
+  amountTotal?: number | null;
+  currency?: string | null;
+  paymentStatus?: string | null;
+}) {
+  await ensureSchema();
+  const database = d1();
+  const write = await database
+    .prepare(
+      `INSERT INTO commerce_orders (
+         session_id, product_id, outcome, outcome_rank, event_created, event_id,
+         lead_id, customer_email, amount_total, currency, payment_status
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(session_id) DO UPDATE SET
+         product_id = excluded.product_id,
+         outcome = excluded.outcome,
+         outcome_rank = excluded.outcome_rank,
+         event_created = excluded.event_created,
+         event_id = excluded.event_id,
+         lead_id = COALESCE(excluded.lead_id, commerce_orders.lead_id),
+         customer_email = COALESCE(excluded.customer_email, commerce_orders.customer_email),
+         amount_total = excluded.amount_total,
+         currency = excluded.currency,
+         payment_status = excluded.payment_status,
+         updated_at = datetime('now')
+       WHERE excluded.outcome_rank > commerce_orders.outcome_rank
+          OR (excluded.outcome_rank = commerce_orders.outcome_rank
+              AND excluded.event_created >= commerce_orders.event_created)`,
+    )
+    .bind(
+      input.sessionId,
+      input.productId,
+      input.outcome,
+      stripeRevenueOutcomeRank[input.outcome],
+      input.eventCreated,
+      input.eventId,
+      input.leadId ?? null,
+      input.customerEmail?.trim().toLowerCase() ?? null,
+      input.amountTotal ?? null,
+      input.currency?.toLowerCase() ?? null,
+      input.paymentStatus ?? null,
+    )
+    .run();
+  const current = await database
+    .prepare(
+      `SELECT session_id, product_id, outcome, event_id, event_created FROM commerce_orders WHERE session_id = ?`,
+    )
+    .bind(input.sessionId)
+    .first<{
+      session_id: string;
+      product_id: string;
+      outcome: StoredStripeCheckoutOutcome;
+      event_id: string;
+      event_created: number;
+    }>();
+  if (!current) throw new Error('Commerce order was not stored');
+  return { applied: Boolean(write.meta.changes), ...current };
+}
+
+export async function getCommerceOrder(sessionId: string) {
+  await ensureSchema();
+  return d1()
+    .prepare(
+      `SELECT session_id, product_id, outcome, lead_id, customer_email, amount_total, currency, payment_status, updated_at FROM commerce_orders WHERE session_id = ?`,
+    )
+    .bind(sessionId)
+    .first<{
+      session_id: string;
+      product_id: string;
+      outcome: StoredStripeCheckoutOutcome;
+      lead_id: string | null;
+      customer_email: string | null;
+      amount_total: number | null;
+      currency: string | null;
+      payment_status: string | null;
+      updated_at: string;
+    }>();
 }
 
 export async function failWebhookEvent(

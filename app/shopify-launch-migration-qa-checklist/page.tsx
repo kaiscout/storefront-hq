@@ -10,8 +10,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-import { offer } from '@/lib/offer';
-
 const pagePath = '/shopify-launch-migration-qa-checklist';
 
 export const metadata: Metadata = {
@@ -128,7 +126,7 @@ const faq = [
   {
     question: 'Does Storefront HQ implement the fixes?',
     answer:
-      'No. Storefront HQ diagnoses public-storefront problems and returns evidence your developer or agency can implement. Shopify admin access and implementation are outside the fixed sprint.',
+      'No. Storefront HQ diagnoses public-storefront problems and returns evidence your developer or agency can implement. Shopify admin access and implementation are outside the focused services.',
   },
 ];
 
@@ -174,7 +172,7 @@ export default function ShopifyLaunchMigrationQaChecklistPage() {
             href="/"
             className="inline-flex items-center gap-2 text-sm font-bold"
           >
-            <ArrowLeft className="size-4" /> {offer.brandName}
+            <ArrowLeft className="size-4" /> Storefront HQ
           </Link>
           <Link
             href="/sample-report"
@@ -400,19 +398,18 @@ export default function ShopifyLaunchMigrationQaChecklistPage() {
               Need the evidence collected and prioritised for you?
             </h2>
             <p className="mt-3 max-w-3xl text-base leading-7">
-              The fixed sprint remains £{offer.priceGbp} GBP paid before work:
-              up to {offer.pageLimit} public storefront pages,{' '}
-              {offer.selectedFindings} fix-ready findings within{' '}
-              {offer.deliveryHours} hours, a {offer.handoffMinutes}-minute
-              handoff and a {offer.watchDays}-day watch on up to{' '}
-              {offer.watchRouteLimit} approved public routes.
+              The £99 Store Emergency Check investigates one reported public
+              storefront problem, documents browser evidence and repair
+              direction, and includes one public retest after your repair. If
+              the problem is launch planning rather than a defect, the £39 Store
+              Launch Kit is the more suitable starting point.
             </p>
           </div>
           <Link
             href="/start"
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#10261f] px-6 py-3 font-bold text-white hover:bg-[#1d4539]"
           >
-            Request a fit check <ArrowRight className="size-4" />
+            See the focused options <ArrowRight className="size-4" />
           </Link>
         </div>
       </section>

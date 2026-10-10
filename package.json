@@ -1,7 +1,7 @@
 {
   "name": "storefront-hq",
   "version": "0.1.0",
-  "description": "Full-stack Shopify QA sales and operations platform with review-controlled automation.",
+  "description": "Storefront HQ commerce site for seller tools, focused services and campaign membership.",
   "private": true,
   "engines": {
     "node": ">=22.13.0"

@@ -125,28 +125,75 @@ export function FindingEditor({
           />
         </div>
         <div>
-          <Label htmlFor="finding-environment">Observed environment / viewport</Label>
-          <Input id="finding-environment" name="environment" maxLength={250} placeholder="Browser, device, market, timestamp" required />
+          <Label htmlFor="finding-environment">
+            Observed environment / viewport
+          </Label>
+          <Input
+            id="finding-environment"
+            name="environment"
+            maxLength={250}
+            placeholder="Browser, device, market, timestamp"
+            required
+          />
         </div>
         <div>
           <Label htmlFor="finding-owner">Suggested owner</Label>
-          <Input id="finding-owner" name="owner" maxLength={150} placeholder="e.g. Theme developer — merchant to confirm" required />
+          <Input
+            id="finding-owner"
+            name="owner"
+            maxLength={150}
+            placeholder="e.g. Theme developer — merchant to confirm"
+            required
+          />
         </div>
         <div className="md:col-span-2">
           <Label htmlFor="finding-reproduction">Exact reproduction steps</Label>
-          <Textarea id="finding-reproduction" name="reproduction" maxLength={800} placeholder="Starting URL → action → observed result" minLength={10} required />
+          <Textarea
+            id="finding-reproduction"
+            name="reproduction"
+            maxLength={800}
+            placeholder="Starting URL → action → observed result"
+            minLength={10}
+            required
+          />
         </div>
         <div className="md:col-span-2">
-          <Label htmlFor="finding-impact">Why it matters — assessment, not proven lost revenue</Label>
-          <Textarea id="finding-impact" name="impact" maxLength={700} placeholder="Describe the possible customer friction and what remains unknown." minLength={10} required />
+          <Label htmlFor="finding-impact">
+            Why it matters — assessment, not proven lost revenue
+          </Label>
+          <Textarea
+            id="finding-impact"
+            name="impact"
+            maxLength={700}
+            placeholder="Describe the possible customer friction and what remains unknown."
+            minLength={10}
+            required
+          />
         </div>
         <div>
-          <Label htmlFor="finding-effort">Effort / implementation uncertainty</Label>
-          <Input id="finding-effort" name="effort" maxLength={250} defaultValue="Not estimated — confirm with the implementer." required />
+          <Label htmlFor="finding-effort">
+            Effort / implementation uncertainty
+          </Label>
+          <Input
+            id="finding-effort"
+            name="effort"
+            maxLength={250}
+            defaultValue="Not estimated — confirm with the implementer."
+            required
+          />
         </div>
         <div className="md:col-span-2">
-          <Label htmlFor="finding-retest">Acceptance check — what must pass after repair?</Label>
-          <Textarea id="finding-retest" name="retest" maxLength={1100} placeholder="Repeat these steps; specify the expected visible result." minLength={10} required />
+          <Label htmlFor="finding-retest">
+            Acceptance check — what must pass after repair?
+          </Label>
+          <Textarea
+            id="finding-retest"
+            name="retest"
+            maxLength={1100}
+            placeholder="Repeat these steps; specify the expected visible result."
+            minLength={10}
+            required
+          />
         </div>
         <div>
           <Label htmlFor="finding-screenshot">

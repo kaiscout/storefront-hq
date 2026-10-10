@@ -76,18 +76,12 @@
       "indexes": {
         "idx_audit_pages_lead_url": {
           "name": "idx_audit_pages_lead_url",
-          "columns": [
-            "lead_id",
-            "url"
-          ],
+          "columns": ["lead_id", "url"],
           "isUnique": true
         },
         "idx_audit_pages_lead_recorded": {
           "name": "idx_audit_pages_lead_recorded",
-          "columns": [
-            "lead_id",
-            "recorded_at"
-          ],
+          "columns": ["lead_id", "recorded_at"],
           "isUnique": false
         }
       },
@@ -96,12 +90,8 @@
           "name": "audit_pages_lead_id_leads_id_fk",
           "tableFrom": "audit_pages",
           "tableTo": "leads",
-          "columnsFrom": [
-            "lead_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lead_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -197,10 +187,7 @@
       "indexes": {
         "idx_cal_bookings_status_updated": {
           "name": "idx_cal_bookings_status_updated",
-          "columns": [
-            "status",
-            "updated_at"
-          ],
+          "columns": ["status", "updated_at"],
           "isUnique": false
         }
       },
@@ -209,12 +196,8 @@
           "name": "cal_bookings_lead_id_leads_id_fk",
           "tableFrom": "cal_bookings",
           "tableTo": "leads",
-          "columnsFrom": [
-            "lead_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lead_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -315,20 +298,12 @@
       "indexes": {
         "idx_findings_lead_severity": {
           "name": "idx_findings_lead_severity",
-          "columns": [
-            "lead_id",
-            "severity"
-          ],
+          "columns": ["lead_id", "severity"],
           "isUnique": false
         },
         "idx_findings_dedupe": {
           "name": "idx_findings_dedupe",
-          "columns": [
-            "lead_id",
-            "url",
-            "title",
-            "evidence"
-          ],
+          "columns": ["lead_id", "url", "title", "evidence"],
           "isUnique": true
         }
       },
@@ -337,12 +312,8 @@
           "name": "findings_lead_id_leads_id_fk",
           "tableFrom": "findings",
           "tableTo": "leads",
-          "columnsFrom": [
-            "lead_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lead_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -452,26 +423,17 @@
       "indexes": {
         "idx_firecrawl_spend_period": {
           "name": "idx_firecrawl_spend_period",
-          "columns": [
-            "period",
-            "purpose"
-          ],
+          "columns": ["period", "purpose"],
           "isUnique": false
         },
         "idx_firecrawl_spend_day": {
           "name": "idx_firecrawl_spend_day",
-          "columns": [
-            "day",
-            "purpose"
-          ],
+          "columns": ["day", "purpose"],
           "isUnique": false
         },
         "idx_firecrawl_spend_request": {
           "name": "idx_firecrawl_spend_request",
-          "columns": [
-            "request_key",
-            "reserved_at"
-          ],
+          "columns": ["request_key", "reserved_at"],
           "isUnique": false
         }
       },
@@ -518,9 +480,7 @@
       "indexes": {
         "idx_intake_rate_limits_updated": {
           "name": "idx_intake_rate_limits_updated",
-          "columns": [
-            "updated_at"
-          ],
+          "columns": ["updated_at"],
           "isUnique": false
         }
       },
@@ -625,18 +585,12 @@
       "indexes": {
         "idx_jobs_dedupe_key": {
           "name": "idx_jobs_dedupe_key",
-          "columns": [
-            "dedupe_key"
-          ],
+          "columns": ["dedupe_key"],
           "isUnique": true
         },
         "idx_jobs_ready": {
           "name": "idx_jobs_ready",
-          "columns": [
-            "status",
-            "run_after",
-            "lease_until"
-          ],
+          "columns": ["status", "run_after", "lease_until"],
           "isUnique": false
         }
       },
@@ -820,24 +774,17 @@
       "indexes": {
         "idx_leads_source_url": {
           "name": "idx_leads_source_url",
-          "columns": [
-            "source_url"
-          ],
+          "columns": ["source_url"],
           "isUnique": true
         },
         "idx_leads_status_updated": {
           "name": "idx_leads_status_updated",
-          "columns": [
-            "status",
-            "updated_at"
-          ],
+          "columns": ["status", "updated_at"],
           "isUnique": false
         },
         "idx_leads_contact_email": {
           "name": "idx_leads_contact_email",
-          "columns": [
-            "contact_email"
-          ],
+          "columns": ["contact_email"],
           "isUnique": false
         }
       },
@@ -945,17 +892,12 @@
       "indexes": {
         "idx_messages_external_id": {
           "name": "idx_messages_external_id",
-          "columns": [
-            "external_id"
-          ],
+          "columns": ["external_id"],
           "isUnique": true
         },
         "idx_messages_lead_created": {
           "name": "idx_messages_lead_created",
-          "columns": [
-            "lead_id",
-            "created_at"
-          ],
+          "columns": ["lead_id", "created_at"],
           "isUnique": false
         }
       },
@@ -964,12 +906,8 @@
           "name": "messages_lead_id_leads_id_fk",
           "tableFrom": "messages",
           "tableTo": "leads",
-          "columnsFrom": [
-            "lead_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lead_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1043,18 +981,12 @@
       "indexes": {
         "idx_route_snapshots_lead_url": {
           "name": "idx_route_snapshots_lead_url",
-          "columns": [
-            "lead_id",
-            "url"
-          ],
+          "columns": ["lead_id", "url"],
           "isUnique": true
         },
         "idx_route_snapshots_checked": {
           "name": "idx_route_snapshots_checked",
-          "columns": [
-            "lead_id",
-            "checked_at"
-          ],
+          "columns": ["lead_id", "checked_at"],
           "isUnique": false
         }
       },
@@ -1063,12 +995,8 @@
           "name": "route_snapshots_lead_id_leads_id_fk",
           "tableFrom": "route_snapshots",
           "tableTo": "leads",
-          "columnsFrom": [
-            "lead_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lead_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1155,10 +1083,7 @@
       "indexes": {
         "idx_stripe_checkout_outcome": {
           "name": "idx_stripe_checkout_outcome",
-          "columns": [
-            "outcome",
-            "updated_at"
-          ],
+          "columns": ["outcome", "updated_at"],
           "isUnique": false
         }
       },
@@ -1203,9 +1128,7 @@
       "indexes": {
         "idx_suppression_identifier": {
           "name": "idx_suppression_identifier",
-          "columns": [
-            "identifier"
-          ],
+          "columns": ["identifier"],
           "isUnique": true
         }
       },
@@ -1250,10 +1173,7 @@
       "indexes": {
         "idx_watch_routes_lead_url": {
           "name": "idx_watch_routes_lead_url",
-          "columns": [
-            "lead_id",
-            "url"
-          ],
+          "columns": ["lead_id", "url"],
           "isUnique": true
         }
       },
@@ -1262,12 +1182,8 @@
           "name": "watch_routes_lead_id_leads_id_fk",
           "tableFrom": "watch_routes",
           "tableTo": "leads",
-          "columnsFrom": [
-            "lead_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lead_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1355,10 +1271,7 @@
       "indexes": {
         "idx_webhook_provider_external": {
           "name": "idx_webhook_provider_external",
-          "columns": [
-            "provider",
-            "external_id"
-          ],
+          "columns": ["provider", "external_id"],
           "isUnique": true
         }
       },

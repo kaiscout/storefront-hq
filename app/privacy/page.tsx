@@ -21,24 +21,23 @@ export default function PrivacyPage() {
           <ArrowLeft className="size-4" /> Home
         </Link>
         <p className="mt-10 font-mono text-xs uppercase tracking-[0.16em] text-[#477a5b]">
-          Privacy notice · Last updated 28 August 2026
+          Privacy notice · Last updated 10 October 2026
         </p>
         <h1 className="mt-4 text-5xl font-black tracking-[-0.05em]">
           Plain-English privacy notice
         </h1>
-        {!config.launchReady ? (
+        {!config.intakeReady ? (
           <div className="mt-6 rounded-xl border border-[#ff6b35]/40 bg-[#ff6b35]/10 p-4 text-sm">
             <strong>Launch gate:</strong> this service is not accepting data
-            until the operator identity, private access, and required service
-            integrations are configured.
+            until the operator identity and private access are configured.
           </div>
         ) : null}
         <div className="prose-qa mt-10 space-y-8 leading-7 text-muted-foreground">
           <section>
             <h2>Who controls the data</h2>
             <p>
-              Storefront HQ is the controller. Privacy questions, objections
-              and complaints can be sent to{' '}
+              Storefront HQ is the controller. Privacy questions, objections and
+              complaints can be sent to{' '}
               <a
                 href={
                   config.contactEmail
@@ -55,11 +54,11 @@ export default function PrivacyPage() {
           <section>
             <h2>What is collected and why</h2>
             <p>
-              For inbound requests: name, work email, company, public store URL
-              and the request history are used to assess fit, answer the
-              enquiry, schedule a call, take payment and deliver the service.
-              The lawful bases are steps requested before a contract and
-              performance of a contract.
+              For inbound requests: name, work email, company, public store URL,
+              selected product, problem description and request history are used
+              to assess fit, answer the enquiry, take payment and deliver the
+              product or service. The lawful bases are steps requested before a
+              contract and performance of a contract.
             </p>
             <p>
               For public buyer-intent research: the system may store a public
@@ -76,9 +75,9 @@ export default function PrivacyPage() {
             <p>
               Public pages may be processed with Firecrawl. Email replies may be
               handled in a dedicated Google account. Calls may be booked through
-              Cal.com. Payments may be processed by the checkout provider named
-              on the payment page. Data comes from you, an explicit public buyer
-              request, and those service events.
+              Cal.com. Payments and subscription status are processed by Stripe.
+              Data comes from you, an explicit public buyer request, and those
+              service events.
             </p>
           </section>
           <section>

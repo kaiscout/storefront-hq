@@ -31,20 +31,11 @@ export const metadata: Metadata = {
     url: '/',
     title: 'Storefront HQ | Build a store people can understand and buy from',
     description: 'Practical tools and focused expert help for online sellers.',
-    images: [
-      {
-        url: '/og.png',
-        width: 1729,
-        height: 910,
-        alt: 'Storefront HQ — practical products and focused help for online sellers',
-      },
-    ],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title: 'Storefront HQ | Practical products for online sellers',
     description: 'Launch tools, focused services and monthly campaign packs.',
-    images: ['/og.png'],
   },
 };
 

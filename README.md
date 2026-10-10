@@ -1,35 +1,42 @@
 # Storefront HQ
 
-Storefront HQ sells one fixed-price product: the **Storefront QA Sprint**, a **£895, 48-hour Shopify storefront QA sprint plus 30 days of regression watch**.
+Storefront HQ sells a four-product ladder for online sellers:
 
-The canonical brand, product, price, and scope values live in [`lib/offer.ts`](./lib/offer.ts). Public copy and operating documentation must mirror those constants: up to 250 public pages, 12 selected findings, an eight-finding evidence guarantee, a 20-minute handoff, and daily observation of 10 agreed routes for 30 days.
+- **Store Launch Kit — £39 one-time:** seven editable launch resources, available after confirmed payment.
+- **Product Page Rescue — £79 one-time:** a focused rewrite and public review of one live product page, delivered within two business days.
+- **Store Emergency Check — £99 one-time:** an evidence-backed diagnosis of one urgent public-storefront problem, with an initial diagnosis within 24 hours and one public retest after repair.
+- **Seller Campaign Club — £19/month:** a monthly campaign pack of practical prompts, templates and a simple launch plan, cancellable through Stripe with no minimum term.
 
-The acquisition model is intent- and permission-led. Ordinary public-web checks locate recent paid-help requests and public Shopify agency profiles. An operator verifies the need, channel rules and fit, then prepares one relevant evidence preview or consented introduction. Firecrawl is reserved behind the production budget guard for bounded cases where ordinary checks are insufficient. Gmail never cold-sends. Replies, Cal bookings, payments and authorised audit events advance a durable D1 pipeline.
+The canonical catalogue lives in [`lib/products.ts`](./lib/products.ts). New-customer copy, checkout configuration and fulfilment must match those names, prices, billing terms and deliverables. [`lib/offer.ts`](./lib/offer.ts) is retained only to reconcile and fulfil any genuine historical Storefront QA Sprint orders; that offer is retired for new customers.
+
+## Checkout and fulfilment safety
+
+- A product is not buyable until its exact live Stripe Payment Link URL and object ID are configured together with the public legal seller name and trading/postal address.
+- A success-page visit or payment email is not proof of payment. The Stripe webhook must match live mode, the configured Payment Link ID, GBP currency and the exact product amount.
+- Digital downloads require a cleared, deduplicated Storefront HQ order.
+- Service work starts only after a safely matched cleared order. Storefront HQ works from public URLs and does not require merchant-admin access.
+- The `/start` form is an enquiry route only. It does not verify email ownership or grant permission for an automated email.
 
 ## What is automated
 
-- One ordinary-web discovery pass per UTC day for fresh, explicit buyer-intent requests
-- Dedupe, scoring and a human qualification gate
-- Firecrawl mobile preview and evidence capture
-- Proposal drafting for an approved reply channel
-- Bounded, idempotent Gmail draft creation for qualified requests and consented website enquiries, plus labelled-thread reply sync
-- Immediate opt-out suppression and deterministic reply classification
-- Signed Cal, Stripe and Firecrawl webhook handling
-- Session-level Stripe outcome precedence, exact lead reconciliation, money alerts and payment-to-audit handoff
-- A visible reconciliation state when cleared money cannot safely advance fulfilment
-- Daily comparison of up to 10 operator-entered, client-approved storefront routes for 30 days after payment
+- Enquiry capture, suppression and consent-aware Gmail thread handling
+- Signed Stripe and booking webhook handling
+- Exact per-product payment classification and durable `commerce_orders`
+- Protected launch-kit and member-pack downloads after confirmed payment
+- Service onboarding from the confirmed-order success page
+- Six-hour operations monitoring and one ordinary-web buyer-intent discovery pass per UTC day
+- Historical payment and delivery reconciliation for genuine prior orders
 
 ## What is deliberately not automated
 
-- Unsolicited commercial Gmail sending
-- Scraping private contact details
-- Automated cold agency or merchant outreach
-- Sending marketplace leads off-platform
-- Claims of conversion or revenue uplift
-- Final evidence validation, refunds or ambiguous reply decisions
-- Resolving an ambiguous or mismatched cleared payment before fulfilment
+- Cold email, scraped contacts or unsolicited public posting
+- Publishing marketplace, community or social replies without human approval
+- Discounts, custom scope, refunds, disputes or legal/tax decisions
+- Claims of guaranteed conversion or revenue uplift
+- Unlocking a download or starting work from an unverified payment signal
+- Firecrawl spending for routine monitoring, discovery or diagnostics
 
-See [RUNBOOK.md](./RUNBOOK.md) for the seven-day operating plan, [LIVE_OPPORTUNITIES_2026-08-28.md](./LIVE_OPPORTUNITIES_2026-08-28.md) for the time-stamped starting pipeline, and [automations/google-apps-script/SETUP.md](./automations/google-apps-script/SETUP.md) for the dedicated Gmail bridge.
+See [RUNBOOK.md](./RUNBOOK.md) for the operating plan and [automations/google-apps-script/SETUP.md](./automations/google-apps-script/SETUP.md) for the dedicated Gmail bridge.
 
 ## Local checks
 

@@ -87,7 +87,7 @@ export default async function ProductPage({
                     href={`/start?product=${product.id}`}
                     className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#10261f] px-6 text-base font-black text-white"
                   >
-                    Ask about availability <ArrowRight className="size-4" />
+                    Request {product.name} <ArrowRight className="size-4" />
                   </Link>
                 )}
                 {isService ? (
@@ -103,8 +103,8 @@ export default async function ProductPage({
                 <p className="mt-5 flex max-w-xl gap-2 rounded-xl border border-[#f2c14e] bg-[#f2c14e]/20 p-4 text-sm leading-6">
                   <CircleAlert className="mt-0.5 size-4 shrink-0" />
                   Online checkout is being connected. The enquiry route is open,
-                  but we will not pretend a payment is available until the live
-                  link is verified.
+                  and no payment is requested until the live Stripe link is
+                  verified.
                 </p>
               ) : null}
             </div>

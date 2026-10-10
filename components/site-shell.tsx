@@ -42,13 +42,13 @@ export function SiteHeader() {
             Free checklist
           </Link>
           <Link
-            href="/start"
+            href="/products/product-page-rescue"
             className={cn(
               buttonVariants({ size: 'lg' }),
               'h-10 rounded-full bg-[#ff6b35] px-4 font-black text-white hover:bg-[#e95725]',
             )}
           >
-            Find my best fit <ArrowRight className="size-4" />
+            Fix one product page <ArrowRight className="size-4" />
           </Link>
         </nav>
       </div>

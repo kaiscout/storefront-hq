@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: 'Storefront HQ | Practical products for online sellers',
   description:
-    'Launch tools, product-page help, urgent storefront diagnosis and monthly campaign packs for online sellers—from £19.',
+    'Get one public ecommerce product page rewritten and reviewed for £79, with focused seller tools and storefront help when you need them.',
   alternates: {
     canonical: '/',
   },
@@ -29,13 +29,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: '/',
-    title: 'Storefront HQ | Build a store people can understand and buy from',
-    description: 'Practical tools and focused expert help for online sellers.',
+    title: 'Storefront HQ | Make your best product easier to buy',
+    description:
+      'One public product page, rewritten and reviewed for a fixed £79.',
   },
   twitter: {
     card: 'summary',
-    title: 'Storefront HQ | Practical products for online sellers',
-    description: 'Launch tools, focused services and monthly campaign packs.',
+    title: 'Storefront HQ | Product Page Rescue for £79',
+    description: 'One public product page, rewritten and reviewed.',
   },
 };
 

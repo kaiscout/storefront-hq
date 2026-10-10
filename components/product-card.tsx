@@ -23,7 +23,7 @@ export function ProductCard({
     >
       {featured ? (
         <span className="absolute -top-3 right-5 rounded-full bg-[#f2c14e] px-3 py-1 text-[10px] font-black uppercase tracking-[0.13em] text-[#10261f]">
-          Best place to start
+          Best first paid step
         </span>
       ) : null}
       <p

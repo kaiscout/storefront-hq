@@ -1,15 +1,23 @@
 import {
   ArrowRight,
   CircleCheck,
+  FileCheck2,
   PackageCheck,
+  PenLine,
   Sparkles,
-  Wrench,
 } from 'lucide-react';
 import Link from 'next/link';
 
 import { ProductCard } from '@/components/product-card';
 import { SiteFooter, SiteHeader } from '@/components/site-shell';
 import { products } from '@/lib/products';
+
+const homepageProducts = [
+  products.find((product) => product.id === 'product-page-rescue')!,
+  products.find((product) => product.id === 'store-launch-kit')!,
+  products.find((product) => product.id === 'store-emergency-check')!,
+  products.find((product) => product.id === 'seller-campaign-club')!,
+];
 
 export default function Home() {
   return (
@@ -23,34 +31,34 @@ export default function Home() {
         <div className="relative mx-auto grid max-w-7xl gap-12 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.08fr_.92fr] lg:items-center lg:px-10 lg:py-28">
           <div>
             <p className="inline-flex rounded-full border border-[#10261f]/20 bg-white/60 px-3 py-1.5 text-xs font-black uppercase tracking-[0.13em]">
-              For online sellers who need the next useful step
+              One public product page · £79 one-time
             </p>
             <h1 className="mt-7 max-w-4xl text-balance text-[clamp(3rem,6.2vw,5.8rem)] font-black leading-[.92] tracking-[-0.06em]">
-              Build a store people can understand—and buy from.
+              Make your best product easier to buy.
             </h1>
             <p className="mt-7 max-w-2xl text-pretty text-lg leading-8 text-muted-foreground sm:text-xl">
-              Start with a ready-to-use launch system, get one important page
-              fixed, diagnose an urgent storefront problem, or keep your
-              marketing moving every month.
+              Send one live product URL. We rewrite the page’s buying argument,
+              answer common objections and return copy and checks your team can
+              publish—within 2 business days.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
-              <a
-                href="#products"
+              <Link
+                href="/products/product-page-rescue"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#ff6b35] px-6 text-base font-black text-white shadow-[0_7px_0_#10261f] hover:bg-[#e95725]"
               >
-                Choose a product <ArrowRight className="size-4" />
-              </a>
+                See the £79 rescue <ArrowRight className="size-4" />
+              </Link>
               <Link
-                href="/start"
+                href="/start?product=product-page-rescue"
                 className="px-3 py-3 text-sm font-black underline decoration-[#ff6b35] decoration-2 underline-offset-4"
               >
-                Not sure? Tell us what is stuck
+                Check fit before paying
               </Link>
             </div>
             <p className="mt-7 flex items-start gap-2 text-sm leading-6 text-muted-foreground">
               <CircleCheck className="mt-0.5 size-4 shrink-0 text-[#477a5b]" />
-              No admin access required for any service. No guaranteed revenue
-              claims.
+              No admin access. You keep control of implementation. No revenue
+              promises.
             </p>
           </div>
           <div className="relative">
@@ -60,15 +68,15 @@ export default function Home() {
             />
             <div className="relative rotate-1 rounded-[2rem] border-2 border-[#10261f] bg-[#10261f] p-6 text-[#f8f4e8] shadow-[14px_14px_0_#ff6b35] sm:p-8">
               <p className="font-mono text-xs font-bold uppercase tracking-[.18em] text-[#a8d66d]">
-                One storefront. Four ways forward.
+                Your Product Page Rescue
               </p>
               <div className="mt-7 space-y-4">
                 {[
-                  [PackageCheck, '£39', 'Build the launch basics'],
-                  [Sparkles, '£79', 'Strengthen one product page'],
-                  [Wrench, '£99', 'Diagnose one urgent issue'],
-                  [CircleCheck, '£19/mo', 'Plan the next campaign'],
-                ].map(([Icon, price, label]) => {
+                  [PenLine, '01', 'Rewrite the title, benefits and description'],
+                  [Sparkles, '02', 'Answer objections with FAQ and trust copy'],
+                  [PackageCheck, '03', 'Shape the image brief and campaign hooks'],
+                  [FileCheck2, '04', 'Add public usability and acceptance checks'],
+                ].map(([Icon, number, label]) => {
                   const Glyph = Icon as typeof PackageCheck;
                   return (
                     <div
@@ -81,16 +89,16 @@ export default function Home() {
                       <span className="text-sm font-bold sm:text-base">
                         {String(label)}
                       </span>
-                      <strong className="text-sm text-[#f2c14e]">
-                        {String(price)}
+                      <strong className="font-mono text-sm text-[#f2c14e]">
+                        {String(number)}
                       </strong>
                     </div>
                   );
                 })}
               </div>
               <p className="mt-6 text-sm leading-6 text-[#b9c6b7]">
-                Buy only the help you need now. Move up only when the next
-                problem appears.
+                One public page. Fixed £79 scope. Delivered within 2 business
+                days.
               </p>
             </div>
           </div>
@@ -102,25 +110,67 @@ export default function Home() {
       >
         <div className="max-w-3xl">
           <p className="font-mono text-xs font-bold uppercase tracking-[.18em] text-[#477a5b]">
-            The Storefront shelf
+            Start narrow
           </p>
           <h2 className="mt-4 text-4xl font-black tracking-[-0.045em] sm:text-6xl">
-            Pick the problem you want solved.
+            One clear first offer. Three useful next steps.
           </h2>
           <p className="mt-5 text-lg leading-8 text-muted-foreground">
-            Each product has a narrow job, a clear price and a concrete output.
-            The £39 kit is the broadest starting point; the services are for
-            focused intervention.
+            Product Page Rescue is the most direct starting point when a live
+            store has traffic but one important page is not doing enough work.
+            The other products stay available for launch, emergencies and
+            repeatable campaigns.
           </p>
         </div>
         <div className="mt-10 grid gap-7 md:grid-cols-2 xl:grid-cols-4">
-          {products.map((product) => (
+          {homepageProducts.map((product) => (
             <ProductCard
               key={product.id}
               product={product}
-              featured={product.id === 'store-launch-kit'}
+              featured={product.id === 'product-page-rescue'}
             />
           ))}
+        </div>
+      </section>
+      <section className="border-y border-[#10261f]/15 bg-white/45">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[.82fr_1.18fr] lg:items-center lg:px-10">
+          <div>
+            <p className="font-mono text-xs font-black uppercase tracking-[.18em] text-[#477a5b]">
+              Illustrative example · not a client result
+            </p>
+            <h2 className="mt-4 text-4xl font-black leading-none tracking-[-0.045em] sm:text-5xl">
+              The job is clarity, not decoration.
+            </h2>
+            <p className="mt-5 text-base leading-7 text-muted-foreground">
+              A rescue turns thin product copy into a buying argument your
+              customer can scan, understand and assess without guessing.
+            </p>
+          </div>
+          <div className="grid gap-px overflow-hidden rounded-[1.75rem] border-2 border-[#10261f] bg-[#10261f] sm:grid-cols-2">
+            <article className="bg-[#f8f4e8] p-6 sm:p-8">
+              <p className="font-mono text-xs font-black uppercase tracking-[.16em] text-[#a34c2c]">
+                Before
+              </p>
+              <h3 className="mt-4 text-2xl font-black">Premium everyday tote</h3>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                Stylish, practical and available in several colours. Perfect
+                for work or weekends.
+              </p>
+            </article>
+            <article className="bg-[#eaf2dc] p-6 sm:p-8">
+              <p className="font-mono text-xs font-black uppercase tracking-[.16em] text-[#477a5b]">
+                After direction
+              </p>
+              <h3 className="mt-4 text-2xl font-black">
+                A structured work tote without the bulk
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                Lead with who it helps, what fits, how it carries and the
+                questions that delay purchase—then support that story with the
+                right image sequence.
+              </p>
+            </article>
+          </div>
         </div>
       </section>
       <section className="border-y border-[#10261f]/15 bg-[#f2c14e]">

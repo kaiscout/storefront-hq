@@ -4,16 +4,22 @@ import {
   completeWebhookEvent,
   failWebhookEvent,
   getLead,
+  getCommerceSubscription,
   listLeadsByEmail,
   recordCommerceOrder,
+  recordCommerceSubscriptionFromCheckout,
   recordStripeCheckoutOutcome,
   setLeadNextAction,
+  updateCommerceSubscription,
 } from '@/lib/database';
 import { productCheckoutConfig } from '@/lib/config';
 import {
   classifyProductCheckout,
   classifyStripeRevenueOutcome,
   resolveStripePaymentLead,
+  stripeBillingPeriod,
+  stripeCustomerId,
+  stripeSubscriptionId,
   stripeRevenueOutcomeRank,
   stripeWebhookEventSchema,
   type StoredStripeRevenueOutcome,
@@ -77,6 +83,101 @@ export async function POST(request: Request) {
 
   try {
     const object = event.data.object;
+    const subscriptionId = stripeSubscriptionId(object);
+    const subscriptionEvent = [
+      'customer.subscription.created',
+      'customer.subscription.updated',
+      'customer.subscription.deleted',
+      'invoice.paid',
+      'invoice.payment_failed',
+    ].includes(event.type);
+    if (subscriptionEvent) {
+      const subscription = subscriptionId
+        ? await getCommerceSubscription(subscriptionId)
+        : null;
+      if (
+        !subscriptionId ||
+        !subscription ||
+        subscription.product_id !== 'seller-campaign-club'
+      ) {
+        const result = {
+          ok: true,
+          commerce: true,
+          subscription: true,
+          applied: false,
+          reason: subscriptionId
+            ? 'subscription-not-linked'
+            : 'missing-subscription-id',
+          subscriptionId,
+        };
+        await completeWebhookEvent('stripe', event.id, result);
+        return Response.json(result);
+      }
+
+      const period = stripeBillingPeriod(object);
+      const invoiceEvent = event.type.startsWith('invoice.');
+      const expectedInvoice =
+        !invoiceEvent ||
+        (event.livemode === true &&
+          object.amount_paid === 1_900 &&
+          object.currency?.toLowerCase() === 'gbp');
+      if (!expectedInvoice) {
+        const result = {
+          ok: true,
+          commerce: true,
+          subscription: true,
+          applied: false,
+          outcome: 'needs_reconciliation',
+          reason: 'unexpected-renewal-amount',
+          subscriptionId,
+          amountPaid: object.amount_paid ?? null,
+          currency: object.currency?.toLowerCase() ?? null,
+        };
+        await completeWebhookEvent('stripe', event.id, result);
+        return Response.json(result);
+      }
+
+      const status =
+        event.type === 'customer.subscription.deleted'
+          ? 'canceled'
+          : event.type === 'invoice.paid'
+            ? 'active'
+            : event.type === 'invoice.payment_failed'
+              ? 'past_due'
+              : (object.status ?? null);
+      const update = await updateCommerceSubscription({
+        subscriptionId,
+        eventId: event.id,
+        eventCreated: event.created,
+        status,
+        customerId: stripeCustomerId(object),
+        currentPeriodStart: period.start,
+        currentPeriodEnd: period.end,
+        cancelAtPeriodEnd: object.cancel_at_period_end,
+        latestInvoiceId: invoiceEvent ? (object.id ?? null) : null,
+      });
+      const result = {
+        ok: true,
+        commerce: true,
+        subscription: true,
+        applied: update.applied,
+        outcome:
+          event.type === 'invoice.payment_failed'
+            ? 'failed_expected'
+            : status === 'canceled'
+              ? 'canceled_expected'
+              : 'subscription_updated',
+        subscriptionId,
+        status: update.subscription?.status ?? status,
+        currentPeriodEnd: update.subscription?.current_period_end ?? null,
+        cancelAtPeriodEnd: Boolean(
+          update.subscription?.cancel_at_period_end,
+        ),
+      };
+      await completeWebhookEvent('stripe', event.id, result);
+      return Response.json(result);
+    }
+
     const commerceConfig = productCheckoutConfig();
     const productCheckout = classifyProductCheckout(
       {
@@ -115,6 +216,28 @@ export async function POST(request: Request) {
         currency: object.currency,
         paymentStatus: object.payment_status,
       });
+      let subscriptionApplied: boolean | null = null;
+      if (
+        productCheckout.productId === 'seller-campaign-club' &&
+        subscriptionId
+      ) {
+        const subscription = await recordCommerceSubscriptionFromCheckout({
+          subscriptionId,
+          productId: productCheckout.productId,
+          checkoutSessionId: object.id,
+          customerId: stripeCustomerId(object),
+          customerEmail,
+          status:
+            productCheckout.outcome === 'cleared_expected'
+              ? 'active'
+              : productCheckout.outcome === 'failed_expected'
+                ? 'past_due'
+                : 'incomplete',
+          eventId: event.id,
+          eventCreated: event.created,
+        });
+        subscriptionApplied = subscription.applied;
+      }
       const result = {
         ok: true,
         commerce: true,
@@ -122,6 +245,8 @@ export async function POST(request: Request) {
         outcome: productCheckout.outcome,
         sessionId: object.id,
         applied: order.applied,
+        subscriptionId,
+        subscriptionApplied,
         leadId: referencedLead?.id ?? null,
         amountTotal: object.amount_total ?? null,
         currency: object.currency?.toLowerCase() ?? null,

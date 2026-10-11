@@ -325,6 +325,42 @@ export const commerceOrders = sqliteTable(
   ],
 );
 
+export const commerceSubscriptions = sqliteTable(
+  'commerce_subscriptions',
+  {
+    subscriptionId: text('subscription_id').primaryKey(),
+    productId: text('product_id').notNull(),
+    checkoutSessionId: text('checkout_session_id').notNull(),
+    customerId: text('customer_id'),
+    customerEmail: text('customer_email'),
+    status: text('status').notNull(),
+    currentPeriodStart: integer('current_period_start'),
+    currentPeriodEnd: integer('current_period_end'),
+    cancelAtPeriodEnd: integer('cancel_at_period_end', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    latestInvoiceId: text('latest_invoice_id'),
+    lastEventId: text('last_event_id').notNull(),
+    lastEventCreated: integer('last_event_created').notNull(),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    uniqueIndex('idx_commerce_subscriptions_session').on(
+      table.checkoutSessionId,
+    ),
+    index('idx_commerce_subscriptions_status').on(
+      table.status,
+      table.updatedAt,
+    ),
+    index('idx_commerce_subscriptions_email').on(
+      table.customerEmail,
+      table.updatedAt,
+    ),
+  ],
+);
+
 export const calBookings = sqliteTable(
   'cal_bookings',
   {

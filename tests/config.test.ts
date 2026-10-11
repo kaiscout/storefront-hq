@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { integrationState, publicConfig } from '../lib/config.ts';
+import {
+  integrationState,
+  productCheckoutConfig,
+  publicConfig,
+} from '../lib/config.ts';
 
 void test('public intake requires identity, private access, and every integration', () => {
   const values: Record<string, string> = {
@@ -89,6 +93,43 @@ void test('public intake requires identity, private access, and every integratio
 
     delete process.env.FIRECRAWL_WEBHOOK_SECRET;
     assert.equal(publicConfig().launchReady, false);
+  } finally {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+void test('product checkout readiness requires seller identity and a Stripe portal for the club', () => {
+  const keys = [
+    'PUBLIC_BUSINESS_NAME',
+    'PUBLIC_BUSINESS_ADDRESS',
+    'STORE_LAUNCH_KIT_CHECKOUT_URL',
+    'STORE_LAUNCH_KIT_PAYMENT_LINK_ID',
+    'SELLER_CAMPAIGN_CLUB_CHECKOUT_URL',
+    'SELLER_CAMPAIGN_CLUB_PAYMENT_LINK_ID',
+    'STRIPE_CUSTOMER_PORTAL_URL',
+  ];
+  const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  try {
+    Object.assign(process.env, {
+      PUBLIC_BUSINESS_NAME: 'Example Seller Ltd',
+      PUBLIC_BUSINESS_ADDRESS: '1 Example Street, London, W1A 1AA',
+      STORE_LAUNCH_KIT_CHECKOUT_URL:
+        'https://buy.stripe.com/14k8wP0launch',
+      STORE_LAUNCH_KIT_PAYMENT_LINK_ID: 'plink_launch',
+      SELLER_CAMPAIGN_CLUB_CHECKOUT_URL:
+        'https://buy.stripe.com/14k8wP0club',
+      SELLER_CAMPAIGN_CLUB_PAYMENT_LINK_ID: 'plink_club',
+    });
+    delete process.env.STRIPE_CUSTOMER_PORTAL_URL;
+    assert.equal(productCheckoutConfig()['store-launch-kit'].ready, true);
+    assert.equal(productCheckoutConfig()['seller-campaign-club'].ready, false);
+
+    process.env.STRIPE_CUSTOMER_PORTAL_URL =
+      'https://billing.stripe.com/p/login/example_live';
+    assert.equal(productCheckoutConfig()['seller-campaign-club'].ready, true);
   } finally {
     for (const [key, value] of Object.entries(original)) {
       if (value === undefined) delete process.env[key];

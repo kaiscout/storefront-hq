@@ -60,7 +60,29 @@ function liveStripeCheckoutUrl(value: string) {
   }
 }
 
+function liveStripeCustomerPortalUrl(value: string) {
+  if (hasUnsafeCheckoutUrlCharacter(value)) return '';
+  try {
+    const url = new URL(value.trim());
+    if (
+      url.protocol !== 'https:' ||
+      url.hostname !== 'billing.stripe.com' ||
+      url.username ||
+      url.password ||
+      url.port ||
+      !/^\/p\/login\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)
+    )
+      return '';
+    return url.href;
+  } catch {
+    return '';
+  }
+}
+
 export function productCheckoutConfig() {
+  const customerPortalUrl = liveStripeCustomerPortalUrl(
+    process.env.STRIPE_CUSTOMER_PORTAL_URL ?? '',
+  );
   return Object.fromEntries(
     products.map((product) => {
       const checkoutUrl = liveStripeCheckoutUrl(
@@ -76,7 +98,12 @@ export function productCheckoutConfig() {
         {
           checkoutUrl,
           paymentLinkId,
-          ready: Boolean(checkoutUrl && paymentLinkId && sellerIdentityReady),
+          ready: Boolean(
+            checkoutUrl &&
+              paymentLinkId &&
+              sellerIdentityReady &&
+              (product.id !== 'seller-campaign-club' || customerPortalUrl),
+          ),
         },
       ];
     }),
@@ -102,6 +129,9 @@ export function publicConfig() {
   const calUrl = process.env.CAL_BOOKING_URL?.trim() ?? '';
   const configuredCheckoutUrl = process.env.CHECKOUT_URL ?? '';
   const checkoutUrl = liveStripeCheckoutUrl(configuredCheckoutUrl);
+  const customerPortalUrl = liveStripeCustomerPortalUrl(
+    process.env.STRIPE_CUSTOMER_PORTAL_URL ?? '',
+  );
   const siteUrl = process.env.PUBLIC_SITE_URL?.replace(/\/$/, '') ?? '';
   const operatorOwners = operatorOwnerEmails();
   const productCheckouts = productCheckoutConfig();
@@ -133,6 +163,7 @@ export function publicConfig() {
     contactEmail,
     calUrl,
     checkoutUrl,
+    customerPortalUrl,
     productCheckouts,
     intakeReady,
     siteUrl,

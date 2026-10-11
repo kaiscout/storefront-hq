@@ -1,6 +1,6 @@
 import type { ProductId } from './products.ts';
 
-type DigitalAsset = {
+export type DigitalAsset = {
   filename: string;
   title: string;
   contentType: string;
@@ -186,28 +186,85 @@ const photoPlanner = `shot_number,purpose,scene_or_angle,product_detail_to_prove
 5,Package,Everything the buyer receives,Included contents,Landscape,Name,Planned,
 `;
 
-const campaignClubStarter = `# Seller Campaign Club — Starter Campaign Pack
+const monthlyCampaigns = [
+  ['January reset', 'Help customers choose one useful improvement for the new year.'],
+  ['Small act of care', 'Show how the product helps someone make an honest, thoughtful gesture.'],
+  ['Spring refresh', 'Connect the product to a practical seasonal reset without inventing urgency.'],
+  ['Buyer confidence', 'Remove the leading objection with clear selection help and proof.'],
+  ['Everyday upgrade', 'Demonstrate a small, repeatable improvement in ordinary use.'],
+  ['Mid-year favourite', 'Give one proven product a focused story instead of promoting everything.'],
+  ['Summer use', 'Show the product in a real seasonal situation, including its limitations.'],
+  ['Back-to-routine', 'Help customers prepare for a return to work, school or regular habits.'],
+  ['Autumn preparation', 'Solve one concrete preparation problem before colder or busier weeks.'],
+  ['Helpful comparison', 'Make it easier to choose between options before peak-season campaigns.'],
+  ['Gift decision help', 'Explain who the product suits, what arrives and the delivery cut-off.'],
+  ['Year-end thanks', 'Combine a genuine thank-you with a clear final useful offer for the year.'],
+] as const;
 
-## Campaign: “One useful change”
-Choose one customer problem your product genuinely resolves. Build every asset around the same claim and destination page.
+function campaignClubAsset(referenceDate: Date): DigitalAsset {
+  const year = referenceDate.getUTCFullYear();
+  const monthIndex = referenceDate.getUTCMonth();
+  const month = String(monthIndex + 1).padStart(2, '0');
+  const monthName = referenceDate.toLocaleString('en-GB', {
+    month: 'long',
+    timeZone: 'UTC',
+  });
+  const [campaignName, campaignBrief] = monthlyCampaigns[monthIndex];
+  const body = `# Seller Campaign Club — ${monthName} ${year} Campaign Pack
 
-### Four-email sequence
-1. **Problem recognition:** describe the familiar situation without exaggeration. Link to the most relevant guide or product.
-2. **Decision help:** explain who the product is and is not for. Answer the leading objection.
-3. **Proof and use:** show the product in context and explain what makes the claim credible.
-4. **Reminder:** summarise the offer, delivery/returns facts and any real deadline. Never invent scarcity.
+## Campaign: ${campaignName}
+${campaignBrief} Choose one customer problem your product genuinely resolves and use one destination page throughout.
 
-### Twelve prompt angles
-Before/after process; common selection mistake; material close-up; founder decision; three use cases; not-for-everyone qualifier; packing view; delivery explainer; customer question; comparison table; care tip; behind-the-scenes check.
+## Four adaptable emails
+1. **Problem recognition** — Subject: A simpler way to [customer task]. Describe the familiar situation without exaggeration, then link to the most relevant product or guide.
+2. **Decision help** — Subject: Which [product type] is right for you? Explain who each option is and is not for, then answer the leading objection.
+3. **Proof in use** — Subject: See how [product] works in practice. Show the product in context and name the material, specification or process that supports the claim.
+4. **Useful reminder** — Subject: Before you choose [product type]. Summarise the offer, delivery and returns facts, and include only a real deadline if one exists.
 
-### Homepage strip
-Headline: [Specific customer result]
-Supporting line: [Who it is for] + [credible differentiator]
-Button: Shop [clear category]
+## Twelve short-form prompts
+1. The most common selection mistake and how to avoid it.
+2. A close-up that proves one material or construction claim.
+3. Three situations where the product is genuinely useful.
+4. Who the product is not designed for.
+5. Everything included in the package.
+6. One customer question answered in plain language.
+7. A simple comparison between two real options.
+8. A care or maintenance tip customers can save.
+9. A behind-the-scenes quality or packing check.
+10. The delivery timeline from order to arrival.
+11. A founder decision that improved the product.
+12. One limitation customers should know before buying.
 
-### Measurement
-Record delivered emails, qualified clicks, product-page sessions, orders and refunds from systems you control. Do not treat impressions as sales.
+## Homepage and promotion banner
+**Headline:** [Specific customer result]
+**Supporting line:** [Who it is for] + [credible differentiator]
+**Button:** Shop [clear category]
+
+## Seven-day launch plan
+- Day 1: confirm the audience, claim, evidence and destination URL.
+- Day 2: update the destination page so it continues the same promise.
+- Day 3: prepare the four emails and twelve short-form variations.
+- Day 4: test every link, variant, price, delivery promise and mobile path.
+- Day 5: publish the first message and record the baseline.
+- Day 6: answer genuine questions and correct confusing copy.
+- Day 7: review qualified clicks, product-page sessions, orders and refunds.
+
+## Measurement checklist
+- [ ] Campaign links use the intended live destination.
+- [ ] Delivered emails and qualified clicks are recorded separately.
+- [ ] Orders and refunds come from systems you lawfully control.
+- [ ] Customer questions are retained as copy-improvement evidence.
+- [ ] Impressions and drafts are not reported as sales.
+
+Do not invent scarcity, testimonials, discounts or revenue claims. Keep a copy of this pack; later access depends on an active subscription.
 `;
+  return {
+    filename: `campaign-club-${year}-${month}.md`,
+    title: `${monthName} ${year} campaign pack`,
+    contentType: 'text/markdown; charset=utf-8',
+    body,
+  };
+}
 
 export const digitalAssets: Partial<
   Record<ProductId, readonly DigitalAsset[]>
@@ -220,61 +277,61 @@ export const digitalAssets: Partial<
       body: launchRoadmap,
     },
     {
-      filename: '02-product-page-framework.md',
-      title: 'Product page framework',
+      filename: '02-page-copy-frameworks.md',
+      title: 'Homepage and product-page frameworks',
       contentType: 'text/markdown; charset=utf-8',
-      body: pageFramework,
+      body: `${pageFramework}\n\n---\n\n${homeFramework}`,
     },
     {
-      filename: '03-homepage-framework.md',
-      title: 'Homepage framework',
-      contentType: 'text/markdown; charset=utf-8',
-      body: homeFramework,
-    },
-    {
-      filename: '04-shipping-returns-trust.md',
+      filename: '03-shipping-returns-trust.md',
       title: 'Shipping, returns and trust checklist',
       contentType: 'text/markdown; charset=utf-8',
       body: trustChecklist,
     },
     {
-      filename: '05-pre-launch-qa.md',
+      filename: '04-pre-launch-qa.md',
       title: 'Pre-launch QA checklist',
       contentType: 'text/markdown; charset=utf-8',
       body: qaChecklist,
     },
     {
-      filename: '06-campaign-planner.csv',
+      filename: '05-campaign-planner.csv',
       title: 'Campaign planner',
       contentType: 'text/csv; charset=utf-8',
       body: campaignPlanner,
     },
     {
-      filename: '07-sales-tracker.csv',
+      filename: '06-sales-tracker.csv',
       title: 'Sales tracker',
       contentType: 'text/csv; charset=utf-8',
       body: salesTracker,
     },
     {
-      filename: '08-product-photo-planner.csv',
+      filename: '07-product-photo-planner.csv',
       title: 'Product photo planner',
       contentType: 'text/csv; charset=utf-8',
       body: photoPlanner,
     },
   ],
-  'seller-campaign-club': [
-    {
-      filename: 'campaign-club-starter-pack.md',
-      title: 'Campaign Club starter pack',
-      contentType: 'text/markdown; charset=utf-8',
-      body: campaignClubStarter,
-    },
-  ],
 };
 
-export function getDigitalAsset(productId: ProductId, filename: string) {
+export function getDigitalAssets(
+  productId: ProductId,
+  referenceDate = new Date(),
+) {
+  if (productId === 'seller-campaign-club')
+    return [campaignClubAsset(referenceDate)] as const;
+  return digitalAssets[productId] ?? [];
+}
+
+export function getDigitalAsset(
+  productId: ProductId,
+  filename: string,
+  referenceDate = new Date(),
+) {
   return (
-    digitalAssets[productId]?.find((asset) => asset.filename === filename) ??
-    null
+    getDigitalAssets(productId, referenceDate).find(
+      (asset) => asset.filename === filename,
+    ) ?? null
   );
 }

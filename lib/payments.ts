@@ -19,11 +19,113 @@ export const stripeWebhookEventSchema = z.object({
         payment_status: z.string().max(50).optional(),
         payment_link: z.string().max(255).nullish(),
         amount_total: z.number().int().nonnegative().nullish(),
+        amount_paid: z.number().int().nonnegative().nullish(),
         currency: z.string().max(16).nullish(),
+        mode: z.string().max(50).nullish(),
+        status: z.string().max(50).nullish(),
+        customer: z
+          .union([
+            z.string().max(255),
+            z.object({ id: z.string().max(255) }).loose(),
+          ])
+          .nullish(),
+        subscription: z
+          .union([
+            z.string().max(255),
+            z.object({ id: z.string().max(255) }).loose(),
+          ])
+          .nullish(),
+        current_period_start: z.number().int().nonnegative().nullish(),
+        current_period_end: z.number().int().nonnegative().nullish(),
+        cancel_at_period_end: z.boolean().nullish(),
+        lines: z
+          .object({
+            data: z.array(
+              z
+                .object({
+                  period: z
+                    .object({
+                      start: z.number().int().nonnegative().nullish(),
+                      end: z.number().int().nonnegative().nullish(),
+                    })
+                    .loose()
+                    .nullish(),
+                })
+                .loose(),
+            ),
+          })
+          .loose()
+          .nullish(),
+        parent: z
+          .object({
+            subscription_details: z
+              .object({
+                subscription: z
+                  .union([
+                    z.string().max(255),
+                    z.object({ id: z.string().max(255) }).loose(),
+                  ])
+                  .nullish(),
+              })
+              .loose()
+              .nullish(),
+          })
+          .loose()
+          .nullish(),
       })
       .loose(),
   }),
 });
+
+export type StripeWebhookObject = z.infer<
+  typeof stripeWebhookEventSchema
+>['data']['object'];
+
+function stripeReferenceId(
+  value: StripeWebhookObject['subscription'] | StripeWebhookObject['customer'],
+) {
+  if (typeof value === 'string') return value;
+  return value?.id ?? null;
+}
+
+export function stripeSubscriptionId(object: StripeWebhookObject) {
+  return (
+    stripeReferenceId(object.subscription) ??
+    stripeReferenceId(object.parent?.subscription_details?.subscription) ??
+    (object.id?.startsWith('sub_') ? object.id : null)
+  );
+}
+
+export function stripeCustomerId(object: StripeWebhookObject) {
+  return stripeReferenceId(object.customer);
+}
+
+export function stripeBillingPeriod(object: StripeWebhookObject) {
+  const periods = object.lines?.data
+    .map((line) => line.period)
+    .filter((period) => period?.start != null && period.end != null);
+  if (periods?.length)
+    return {
+      start: Math.min(...periods.map((period) => period!.start!)),
+      end: Math.max(...periods.map((period) => period!.end!)),
+    };
+  return {
+    start: object.current_period_start ?? null,
+    end: object.current_period_end ?? null,
+  };
+}
+
+export function subscriptionGrantsAccess(
+  subscription: { status: string; currentPeriodEnd?: number | null } | null,
+  nowEpochSeconds = Math.floor(Date.now() / 1000),
+) {
+  if (!subscription || !['active', 'trialing'].includes(subscription.status))
+    return false;
+  return (
+    subscription.currentPeriodEnd == null ||
+    subscription.currentPeriodEnd >= nowEpochSeconds
+  );
+}
 
 export function isClearedCheckoutPayment(
   eventType: string,

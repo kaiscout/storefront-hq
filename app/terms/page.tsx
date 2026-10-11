@@ -110,9 +110,16 @@ export default function TermsPage() {
               current member campaign pack and subsequent monthly packs while
               the subscription remains active. Cancellation stops future
               renewal; it does not remove files already lawfully supplied.
-              Cancellation instructions are available through the Stripe
-              customer portal or by emailing Storefront HQ. We do not impose a
-              minimum term.
+              Cancellation instructions are available{' '}
+              {config.customerPortalUrl ? (
+                <>
+                  through the{' '}
+                  <a href={config.customerPortalUrl}>Stripe customer portal</a>
+                </>
+              ) : (
+                <>through the Stripe customer portal</>
+              )}{' '}
+              or by emailing Storefront HQ. We do not impose a minimum term.
             </p>
           </section>
           <section>

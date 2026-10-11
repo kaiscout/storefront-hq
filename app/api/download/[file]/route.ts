@@ -1,5 +1,9 @@
-import { getCommerceOrder } from '@/lib/database';
+import {
+  getCommerceOrder,
+  getCommerceSubscriptionBySession,
+} from '@/lib/database';
 import { getDigitalAsset } from '@/lib/digital-products';
+import { subscriptionGrantsAccess } from '@/lib/payments';
 import { getProduct } from '@/lib/products';
 
 export async function GET(
@@ -17,6 +21,22 @@ export async function GET(
       status: 403,
       headers: { 'Cache-Control': 'no-store' },
     });
+  if (product.id === 'seller-campaign-club') {
+    const subscription = await getCommerceSubscriptionBySession(sessionId);
+    const active = subscriptionGrantsAccess(
+      subscription
+        ? {
+            status: subscription.status,
+            currentPeriodEnd: subscription.current_period_end,
+          }
+        : null,
+    );
+    if (!active)
+      return new Response('An active subscription is required.', {
+        status: 403,
+        headers: { 'Cache-Control': 'no-store' },
+      });
+  }
   const asset = getDigitalAsset(product.id, (await params).file);
   if (!asset) return new Response('File not found.', { status: 404 });
   return new Response(asset.body, {

@@ -8,7 +8,11 @@ import {
   isExpectedLiveCheckoutPayment,
   resolveStripePaymentLead,
   shouldApplyStripeSessionOutcome,
+  stripeBillingPeriod,
+  stripeCustomerId,
+  stripeSubscriptionId,
   stripeWebhookEventSchema,
+  subscriptionGrantsAccess,
 } from '../lib/payments.ts';
 
 void test('new product checkouts require the exact live link, GBP amount and event state', () => {
@@ -345,4 +349,67 @@ void test('Stripe webhook payloads require stable event identity and session dat
     { ...valid, data: {} },
   ])
     assert.equal(stripeWebhookEventSchema.safeParse(invalid).success, false);
+});
+
+void test('Stripe subscription helpers support Checkout, invoice and subscription objects', () => {
+  const checkout = stripeWebhookEventSchema.parse({
+    id: 'evt_checkout',
+    type: 'checkout.session.completed',
+    created: 100,
+    livemode: true,
+    data: {
+      object: {
+        id: 'cs_live_example',
+        subscription: 'sub_example',
+        customer: 'cus_example',
+      },
+    },
+  }).data.object;
+  assert.equal(stripeSubscriptionId(checkout), 'sub_example');
+  assert.equal(stripeCustomerId(checkout), 'cus_example');
+
+  const invoice = stripeWebhookEventSchema.parse({
+    id: 'evt_invoice',
+    type: 'invoice.paid',
+    created: 200,
+    livemode: true,
+    data: {
+      object: {
+        id: 'in_example',
+        parent: { subscription_details: { subscription: 'sub_example' } },
+        lines: {
+          data: [
+            { period: { start: 1_800_000_000, end: 1_802_678_400 } },
+          ],
+        },
+      },
+    },
+  }).data.object;
+  assert.equal(stripeSubscriptionId(invoice), 'sub_example');
+  assert.deepEqual(stripeBillingPeriod(invoice), {
+    start: 1_800_000_000,
+    end: 1_802_678_400,
+  });
+});
+
+void test('membership access requires an active unexpired subscription', () => {
+  assert.equal(
+    subscriptionGrantsAccess(
+      { status: 'active', currentPeriodEnd: 2_000 },
+      1_000,
+    ),
+    true,
+  );
+  assert.equal(
+    subscriptionGrantsAccess(
+      { status: 'active', currentPeriodEnd: 999 },
+      1_000,
+    ),
+    false,
+  );
+  for (const status of ['past_due', 'canceled', 'incomplete'])
+    assert.equal(
+      subscriptionGrantsAccess({ status, currentPeriodEnd: 2_000 }, 1_000),
+      false,
+    );
 });

@@ -9,8 +9,12 @@ import Link from 'next/link';
 
 import { SiteFooter, SiteHeader } from '@/components/site-shell';
 import { publicConfig } from '@/lib/config';
-import { getCommerceOrder } from '@/lib/database';
-import { digitalAssets } from '@/lib/digital-products';
+import {
+  getCommerceOrder,
+  getCommerceSubscriptionBySession,
+} from '@/lib/database';
+import { getDigitalAssets } from '@/lib/digital-products';
+import { subscriptionGrantsAccess } from '@/lib/payments';
 import { getProduct } from '@/lib/products';
 
 export const dynamic = 'force-dynamic';
@@ -25,7 +29,24 @@ export default async function SuccessPage({
   const order = validSession ? await getCommerceOrder(sessionId) : null;
   const product = order ? getProduct(order.product_id) : null;
   const cleared = order?.outcome === 'cleared_expected';
-  const assets = product ? (digitalAssets[product.id] ?? []) : [];
+  const subscription =
+    cleared && product?.id === 'seller-campaign-club'
+      ? await getCommerceSubscriptionBySession(sessionId)
+      : null;
+  const membershipActive = subscriptionGrantsAccess(
+    subscription
+      ? {
+          status: subscription.status,
+          currentPeriodEnd: subscription.current_period_end,
+        }
+      : null,
+  );
+  const entitled = Boolean(
+    cleared &&
+      product &&
+      (product.id !== 'seller-campaign-club' || membershipActive),
+  );
+  const assets = entitled && product ? getDigitalAssets(product.id) : [];
   const config = publicConfig();
   const onboardingBody = product
     ? [
@@ -49,7 +70,7 @@ export default async function SuccessPage({
       <SiteHeader />
       <div className="mx-auto max-w-4xl px-5 py-12 sm:px-8 sm:py-20">
         <section className="rounded-[2rem] border-2 border-[#10261f] bg-white/55 p-6 shadow-[12px_12px_0_#10261f] sm:p-10">
-          {cleared && product ? (
+          {entitled && product ? (
             <>
               <CheckCircle2 className="size-12 text-[#477a5b]" />
               <p className="mt-6 font-mono text-xs font-black uppercase tracking-[.17em] text-[#477a5b]">
@@ -102,6 +123,15 @@ export default async function SuccessPage({
                   never needs your card details or store password.
                 </p>
               </div>
+              {product.id === 'seller-campaign-club' &&
+              config.customerPortalUrl ? (
+                <a
+                  href={config.customerPortalUrl}
+                  className="mt-5 inline-flex font-bold underline underline-offset-4"
+                >
+                  Manage or cancel the subscription securely through Stripe
+                </a>
+              ) : null}
             </>
           ) : (
             <>
@@ -113,10 +143,10 @@ export default async function SuccessPage({
                 We have not unlocked the order yet.
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-                The signed Stripe event may still be arriving, or this page does
-                not contain a valid live Checkout Session. Refresh once after a
-                short wait. A success-page visit alone is never treated as proof
-                of payment.
+                The signed Stripe event may still be arriving, this subscription
+                may no longer be active, or this page does not contain a valid
+                live Checkout Session. Refresh once after a short wait. A
+                success-page visit alone is never treated as proof of payment.
               </p>
               <div className="mt-7 flex flex-wrap gap-3">
                 <a

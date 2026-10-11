@@ -187,6 +187,24 @@ const schemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_commerce_orders_outcome ON commerce_orders(outcome, updated_at)`,
   `CREATE INDEX IF NOT EXISTS idx_commerce_orders_email ON commerce_orders(customer_email, updated_at)`,
+  `CREATE TABLE IF NOT EXISTS commerce_subscriptions (
+    subscription_id TEXT PRIMARY KEY,
+    product_id TEXT NOT NULL,
+    checkout_session_id TEXT NOT NULL,
+    customer_id TEXT,
+    customer_email TEXT,
+    status TEXT NOT NULL,
+    current_period_start INTEGER,
+    current_period_end INTEGER,
+    cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+    latest_invoice_id TEXT,
+    last_event_id TEXT NOT NULL,
+    last_event_created INTEGER NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_commerce_subscriptions_session ON commerce_subscriptions(checkout_session_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_commerce_subscriptions_status ON commerce_subscriptions(status, updated_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_commerce_subscriptions_email ON commerce_subscriptions(customer_email, updated_at)`,
   `CREATE TABLE IF NOT EXISTS cal_bookings (
     booking_uid TEXT PRIMARY KEY,
     attendee_email TEXT,
@@ -2382,6 +2400,139 @@ export async function getCommerceOrder(sessionId: string) {
       payment_status: string | null;
       updated_at: string;
     }>();
+}
+
+export type CommerceSubscriptionRecord = {
+  subscription_id: string;
+  product_id: string;
+  checkout_session_id: string;
+  customer_id: string | null;
+  customer_email: string | null;
+  status: string;
+  current_period_start: number | null;
+  current_period_end: number | null;
+  cancel_at_period_end: number;
+  latest_invoice_id: string | null;
+  last_event_id: string;
+  last_event_created: number;
+  updated_at: string;
+};
+
+export async function recordCommerceSubscriptionFromCheckout(input: {
+  subscriptionId: string;
+  productId: string;
+  checkoutSessionId: string;
+  customerId?: string | null;
+  customerEmail?: string | null;
+  status: string;
+  eventId: string;
+  eventCreated: number;
+}) {
+  await ensureSchema();
+  const write = await d1()
+    .prepare(
+      `INSERT INTO commerce_subscriptions (
+         subscription_id, product_id, checkout_session_id, customer_id,
+         customer_email, status, last_event_id, last_event_created
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(subscription_id) DO UPDATE SET
+         product_id = excluded.product_id,
+         checkout_session_id = excluded.checkout_session_id,
+         customer_id = COALESCE(excluded.customer_id, commerce_subscriptions.customer_id),
+         customer_email = COALESCE(excluded.customer_email, commerce_subscriptions.customer_email),
+         status = excluded.status,
+         last_event_id = excluded.last_event_id,
+         last_event_created = excluded.last_event_created,
+         updated_at = datetime('now')
+       WHERE excluded.last_event_created >= commerce_subscriptions.last_event_created`,
+    )
+    .bind(
+      input.subscriptionId,
+      input.productId,
+      input.checkoutSessionId,
+      input.customerId ?? null,
+      input.customerEmail?.trim().toLowerCase() ?? null,
+      input.status,
+      input.eventId,
+      input.eventCreated,
+    )
+    .run();
+  return { applied: Boolean(write.meta.changes) };
+}
+
+export async function updateCommerceSubscription(input: {
+  subscriptionId: string;
+  eventId: string;
+  eventCreated: number;
+  status?: string | null;
+  customerId?: string | null;
+  currentPeriodStart?: number | null;
+  currentPeriodEnd?: number | null;
+  cancelAtPeriodEnd?: boolean | null;
+  latestInvoiceId?: string | null;
+}) {
+  await ensureSchema();
+  const write = await d1()
+    .prepare(
+      `UPDATE commerce_subscriptions SET
+         status = COALESCE(?, status),
+         customer_id = COALESCE(?, customer_id),
+         current_period_start = COALESCE(?, current_period_start),
+         current_period_end = COALESCE(?, current_period_end),
+         cancel_at_period_end = COALESCE(?, cancel_at_period_end),
+         latest_invoice_id = COALESCE(?, latest_invoice_id),
+         last_event_id = ?,
+         last_event_created = ?,
+         updated_at = datetime('now')
+       WHERE subscription_id = ? AND ? >= last_event_created`,
+    )
+    .bind(
+      input.status ?? null,
+      input.customerId ?? null,
+      input.currentPeriodStart ?? null,
+      input.currentPeriodEnd ?? null,
+      input.cancelAtPeriodEnd === undefined || input.cancelAtPeriodEnd === null
+        ? null
+        : input.cancelAtPeriodEnd
+          ? 1
+          : 0,
+      input.latestInvoiceId ?? null,
+      input.eventId,
+      input.eventCreated,
+      input.subscriptionId,
+      input.eventCreated,
+    )
+    .run();
+  const subscription = await getCommerceSubscription(input.subscriptionId);
+  return { applied: Boolean(write.meta.changes), subscription };
+}
+
+export async function getCommerceSubscription(subscriptionId: string) {
+  await ensureSchema();
+  return d1()
+    .prepare(
+      `SELECT subscription_id, product_id, checkout_session_id, customer_id,
+              customer_email, status, current_period_start, current_period_end,
+              cancel_at_period_end, latest_invoice_id, last_event_id,
+              last_event_created, updated_at
+       FROM commerce_subscriptions WHERE subscription_id = ?`,
+    )
+    .bind(subscriptionId)
+    .first<CommerceSubscriptionRecord>();
+}
+
+export async function getCommerceSubscriptionBySession(sessionId: string) {
+  await ensureSchema();
+  return d1()
+    .prepare(
+      `SELECT subscription_id, product_id, checkout_session_id, customer_id,
+              customer_email, status, current_period_start, current_period_end,
+              cancel_at_period_end, latest_invoice_id, last_event_id,
+              last_event_created, updated_at
+       FROM commerce_subscriptions WHERE checkout_session_id = ?`,
+    )
+    .bind(sessionId)
+    .first<CommerceSubscriptionRecord>();
 }
 
 export async function failWebhookEvent(

@@ -2,6 +2,7 @@ import { ArrowRight, Store } from 'lucide-react';
 import Link from 'next/link';
 
 import { buttonVariants } from '@/components/ui/button';
+import { publicConfig } from '@/lib/config';
 import { cn } from '@/lib/utils';
 
 export function SiteHeader() {
@@ -36,19 +37,25 @@ export function SiteHeader() {
             Products
           </Link>
           <Link
-            href="/shopify-launch-migration-qa-checklist"
+            href="/triage"
             className="hidden px-3 py-2 text-sm font-bold text-muted-foreground hover:text-foreground lg:block"
           >
-            Free checklist
+            Free triage
           </Link>
           <Link
-            href="/products/product-page-rescue"
+            href="/agency-partners"
+            className="hidden px-3 py-2 text-sm font-bold text-muted-foreground hover:text-foreground xl:block"
+          >
+            Agencies
+          </Link>
+          <Link
+            href="/products/store-emergency-check"
             className={cn(
               buttonVariants({ size: 'lg' }),
               'h-10 rounded-full bg-[#ff6b35] px-4 font-black text-white hover:bg-[#e95725]',
             )}
           >
-            Fix one product page <ArrowRight className="size-4" />
+            Check a store issue <ArrowRight className="size-4" />
           </Link>
         </nav>
       </div>
@@ -57,6 +64,8 @@ export function SiteHeader() {
 }
 
 export function SiteFooter() {
+  const config = publicConfig();
+  const identityReady = Boolean(config.businessName && config.businessAddress);
   return (
     <footer className="border-t border-white/10 bg-[#10261f] text-[#f8f4e8]">
       <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 sm:px-8 md:grid-cols-[1fr_auto] lg:px-10">
@@ -67,6 +76,12 @@ export function SiteFooter() {
             growing online shops. Independent from Shopify and every ecommerce
             platform.
           </p>
+          {identityReady ? (
+            <p className="mt-3 max-w-xl text-xs leading-5 text-[#9fb09c]">
+              Seller: {config.businessName}, trading as Storefront HQ ·{' '}
+              {config.businessAddress}
+            </p>
+          ) : null}
         </div>
         <nav className="flex flex-wrap content-start gap-x-5 gap-y-3 text-sm text-[#d8e1d6] md:justify-end">
           <Link
@@ -74,6 +89,15 @@ export function SiteFooter() {
             className="underline-offset-4 hover:underline"
           >
             Products
+          </Link>
+          <Link href="/triage" className="underline-offset-4 hover:underline">
+            Free triage
+          </Link>
+          <Link
+            href="/agency-partners"
+            className="underline-offset-4 hover:underline"
+          >
+            Agencies
           </Link>
           <Link href="/privacy" className="underline-offset-4 hover:underline">
             Privacy

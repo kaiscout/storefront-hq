@@ -3,12 +3,24 @@ const siteUrl = (
 ).replace(/\/$/, '');
 
 const routes = [
-  { path: '', frequency: 'weekly', priority: '1.0', lastmod: '2026-10-10' },
+  { path: '', frequency: 'weekly', priority: '1.0', lastmod: '2026-10-14' },
+  {
+    path: '/triage',
+    frequency: 'monthly',
+    priority: '0.9',
+    lastmod: '2026-10-14',
+  },
+  {
+    path: '/agency-partners',
+    frequency: 'monthly',
+    priority: '0.8',
+    lastmod: '2026-10-14',
+  },
   {
     path: '/start',
     frequency: 'weekly',
     priority: '0.9',
-    lastmod: '2026-10-10',
+    lastmod: '2026-10-14',
   },
   ...[
     'store-launch-kit',
@@ -19,7 +31,7 @@ const routes = [
     path: `/products/${slug}`,
     frequency: 'weekly',
     priority: '0.9',
-    lastmod: '2026-10-10',
+    lastmod: '2026-10-14',
   })),
   {
     path: '/shopify-launch-migration-qa-checklist',
@@ -37,13 +49,13 @@ const routes = [
     path: '/privacy',
     frequency: 'yearly',
     priority: '0.2',
-    lastmod: '2026-10-10',
+    lastmod: '2026-10-14',
   },
   {
     path: '/terms',
     frequency: 'yearly',
     priority: '0.2',
-    lastmod: '2026-10-10',
+    lastmod: '2026-10-14',
   },
 ];
 

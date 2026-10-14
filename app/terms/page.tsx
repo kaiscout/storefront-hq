@@ -14,7 +14,7 @@ export default function TermsPage() {
       <SiteHeader />
       <article className="mx-auto max-w-4xl px-5 py-12 sm:px-8 sm:py-20">
         <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-[#477a5b]">
-          Storefront HQ · Product terms · Last updated 10 October 2026
+          Storefront HQ · Product terms · Last updated 14 October 2026
         </p>
         <h1 className="mt-4 text-5xl font-black tracking-[-0.05em]">
           Clear products, prices and responsibilities.

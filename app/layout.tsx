@@ -17,9 +17,9 @@ const siteUrl = process.env.PUBLIC_SITE_URL?.trim() || 'http://localhost:3000';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: 'Storefront HQ | Practical products for online sellers',
+  title: 'Storefront HQ | Find the next fix for a broken storefront',
   description:
-    'Get one public ecommerce product page rewritten and reviewed for £79, with focused seller tools and storefront help when you need them.',
+    'Get one reported public-storefront issue reproduced, diagnosed and made repair-ready for £99, with an initial diagnosis within 24 hours.',
   alternates: {
     canonical: '/',
   },
@@ -29,14 +29,15 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: '/',
-    title: 'Storefront HQ | Make your best product easier to buy',
+    title: 'Storefront HQ | Something broke. Find the next fix fast.',
     description:
-      'One public product page, rewritten and reviewed for a fixed £79.',
+      'One public storefront problem, evidence-backed diagnosis and one retest for a fixed £99.',
   },
   twitter: {
     card: 'summary',
-    title: 'Storefront HQ | Product Page Rescue for £79',
-    description: 'One public product page, rewritten and reviewed.',
+    title: 'Storefront HQ | Store Emergency Check for £99',
+    description:
+      'One public storefront problem, evidence-backed diagnosis and one retest.',
   },
 };
 

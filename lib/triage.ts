@@ -27,6 +27,18 @@ export type TriageSymptom = (typeof triageSymptoms)[number]['id'];
 export type TriageReach = 'everyone' | 'mobile' | 'desktop' | 'unknown';
 export type TriageTiming = 'now' | 'recent' | 'ongoing';
 
+export function isTriageSymptom(value: string): value is TriageSymptom {
+  return triageSymptoms.some((option) => option.id === value);
+}
+
+export function isTriageReach(value: string): value is TriageReach {
+  return ['everyone', 'mobile', 'desktop', 'unknown'].includes(value);
+}
+
+export function isTriageTiming(value: string): value is TriageTiming {
+  return ['now', 'recent', 'ongoing'].includes(value);
+}
+
 export type TriagePlan = {
   title: string;
   summary: string;

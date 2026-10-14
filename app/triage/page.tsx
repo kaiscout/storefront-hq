@@ -3,6 +3,12 @@ import type { Metadata } from 'next';
 import { SiteFooter, SiteHeader } from '@/components/site-shell';
 import { TriageTool } from '@/components/triage-tool';
 import { productCheckoutConfig } from '@/lib/config';
+import {
+  createTriagePlan,
+  isTriageReach,
+  isTriageSymptom,
+  isTriageTiming,
+} from '@/lib/triage';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +18,25 @@ export const metadata: Metadata = {
     'Answer three questions and get a practical first-check plan for a broken buying path, weak product page, launch or campaign.',
 };
 
-export default function TriagePage() {
+export default async function TriagePage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    symptom?: string;
+    reach?: string;
+    timing?: string;
+  }>;
+}) {
+  const query = await searchParams;
+  const symptom =
+    query.symptom && isTriageSymptom(query.symptom) ? query.symptom : null;
+  const reach = query.reach && isTriageReach(query.reach) ? query.reach : null;
+  const timing =
+    query.timing && isTriageTiming(query.timing) ? query.timing : null;
+  const plan =
+    symptom && reach && timing
+      ? createTriagePlan(symptom, reach, timing)
+      : null;
   const checkoutReady = Object.fromEntries(
     Object.entries(productCheckoutConfig()).map(([id, config]) => [
       id,
@@ -37,7 +61,11 @@ export default function TriagePage() {
             Nothing is submitted and no admin access is needed.
           </p>
           <div className="mt-10">
-            <TriageTool checkoutReady={checkoutReady} />
+            <TriageTool
+              checkoutReady={checkoutReady}
+              plan={plan}
+              selected={{ symptom, reach, timing }}
+            />
           </div>
           <p className="mt-8 max-w-4xl text-sm leading-6 text-muted-foreground">
             This self-guided tool narrows a starting point; it does not inspect

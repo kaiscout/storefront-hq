@@ -1,16 +1,13 @@
-'use client';
-
 import { ArrowRight, Check, ClipboardCheck, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
 
-import {
-  createTriagePlan,
-  triageSymptoms,
-  type TriageReach,
-  type TriageSymptom,
-  type TriageTiming,
+import type {
+  TriagePlan,
+  TriageReach,
+  TriageSymptom,
+  TriageTiming,
 } from '@/lib/triage';
+import { triageSymptoms } from '@/lib/triage';
 
 const reachOptions: { id: TriageReach; label: string }[] = [
   { id: 'everyone', label: 'More than one device' },
@@ -25,65 +22,55 @@ const timingOptions: { id: TriageTiming; label: string }[] = [
   { id: 'ongoing', label: 'It has been an ongoing problem' },
 ];
 
-function ChoiceButton({
-  selected,
-  onClick,
-  children,
+function Choice({
+  name,
+  value,
+  label,
+  checked,
 }: {
-  selected: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
+  name: string;
+  value: string;
+  label: string;
+  checked: boolean;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={onClick}
-      className={`flex min-h-14 items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left text-sm font-bold leading-5 transition ${
-        selected
-          ? 'border-[#10261f] bg-[#10261f] text-white'
-          : 'border-[#10261f]/15 bg-white/60 hover:border-[#10261f]/45'
-      }`}
-    >
-      <span
-        className={`grid size-6 shrink-0 place-items-center rounded-full border ${
-          selected
-            ? 'border-[#a8d66d] bg-[#a8d66d] text-[#10261f]'
-            : 'border-[#10261f]/25'
-        }`}
-      >
-        {selected ? <Check className="size-3.5 stroke-[3]" /> : null}
+    <label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border-2 border-[#10261f]/15 bg-white/60 px-4 py-3 text-left text-sm font-bold leading-5 transition hover:border-[#10261f]/45 has-[:checked]:border-[#10261f] has-[:checked]:bg-[#10261f] has-[:checked]:text-white">
+      <input
+        className="peer sr-only"
+        type="radio"
+        name={name}
+        value={value}
+        defaultChecked={checked}
+        required
+      />
+      <span className="grid size-6 shrink-0 place-items-center rounded-full border border-[#10261f]/25 peer-checked:border-[#a8d66d] peer-checked:bg-[#a8d66d] peer-checked:text-[#10261f]">
+        <Check className="hidden size-3.5 stroke-[3] peer-checked:block" />
       </span>
-      {children}
-    </button>
+      {label}
+    </label>
   );
 }
 
 export function TriageTool({
   checkoutReady,
+  plan,
+  selected,
 }: {
   checkoutReady: Record<string, boolean>;
+  plan: TriagePlan | null;
+  selected: {
+    symptom: TriageSymptom | null;
+    reach: TriageReach | null;
+    timing: TriageTiming | null;
+  };
 }) {
-  const [symptom, setSymptom] = useState<TriageSymptom | null>(null);
-  const [reach, setReach] = useState<TriageReach | null>(null);
-  const [timing, setTiming] = useState<TriageTiming | null>(null);
-  const plan = useMemo(
-    () =>
-      symptom && reach && timing
-        ? createTriagePlan(symptom, reach, timing)
-        : null,
-    [reach, symptom, timing],
-  );
-
-  function reset() {
-    setSymptom(null);
-    setReach(null);
-    setTiming(null);
-  }
-
   return (
     <div className="grid gap-8 lg:grid-cols-[.9fr_1.1fr]">
-      <section className="rounded-[2rem] border-2 border-[#10261f] bg-white/55 p-5 shadow-[9px_9px_0_rgba(16,38,31,.12)] sm:p-8">
+      <form
+        action="/triage"
+        method="get"
+        className="rounded-[2rem] border-2 border-[#10261f] bg-white/55 p-5 shadow-[9px_9px_0_rgba(16,38,31,.12)] sm:p-8"
+      >
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="font-mono text-xs font-black uppercase tracking-[.17em] text-[#477a5b]">
@@ -93,14 +80,13 @@ export function TriageTool({
               Describe what you can observe
             </h2>
           </div>
-          {symptom || reach || timing ? (
-            <button
-              type="button"
-              onClick={reset}
+          {selected.symptom || selected.reach || selected.timing ? (
+            <Link
+              href="/triage"
               className="inline-flex shrink-0 items-center gap-2 text-xs font-black underline decoration-[#ff6b35] decoration-2 underline-offset-4"
             >
               <RotateCcw className="size-3.5" /> Reset
-            </button>
+            </Link>
           ) : null}
         </div>
 
@@ -108,13 +94,13 @@ export function TriageTool({
           <legend className="text-sm font-black">1. What is the main problem?</legend>
           <div className="mt-3 grid gap-2.5">
             {triageSymptoms.map((option) => (
-              <ChoiceButton
+              <Choice
                 key={option.id}
-                selected={symptom === option.id}
-                onClick={() => setSymptom(option.id)}
-              >
-                {option.label}
-              </ChoiceButton>
+                name="symptom"
+                value={option.id}
+                label={option.label}
+                checked={selected.symptom === option.id}
+              />
             ))}
           </div>
         </fieldset>
@@ -123,13 +109,13 @@ export function TriageTool({
           <legend className="text-sm font-black">2. Who can reproduce it?</legend>
           <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
             {reachOptions.map((option) => (
-              <ChoiceButton
+              <Choice
                 key={option.id}
-                selected={reach === option.id}
-                onClick={() => setReach(option.id)}
-              >
-                {option.label}
-              </ChoiceButton>
+                name="reach"
+                value={option.id}
+                label={option.label}
+                checked={selected.reach === option.id}
+              />
             ))}
           </div>
         </fieldset>
@@ -138,17 +124,24 @@ export function TriageTool({
           <legend className="text-sm font-black">3. When did it begin?</legend>
           <div className="mt-3 grid gap-2.5">
             {timingOptions.map((option) => (
-              <ChoiceButton
+              <Choice
                 key={option.id}
-                selected={timing === option.id}
-                onClick={() => setTiming(option.id)}
-              >
-                {option.label}
-              </ChoiceButton>
+                name="timing"
+                value={option.id}
+                label={option.label}
+                checked={selected.timing === option.id}
+              />
             ))}
           </div>
         </fieldset>
-      </section>
+
+        <button
+          type="submit"
+          className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#ff6b35] px-6 text-sm font-black text-white shadow-[0_5px_0_#10261f] hover:bg-[#e95725]"
+        >
+          Show my triage plan <ArrowRight className="size-4" />
+        </button>
+      </form>
 
       <section
         aria-live="polite"
@@ -234,8 +227,8 @@ export function TriageTool({
                 Your first checks will appear here.
               </h2>
               <p className="mt-4 text-sm leading-6 text-[#c9d4c7]">
-                Answer all three questions. The tool runs in this page and does
-                not submit your answers or inspect your store.
+                Answer all three questions and submit. The tool does not save
+                your answers or inspect your store.
               </p>
             </div>
           </div>

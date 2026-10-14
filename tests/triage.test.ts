@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createTriagePlan, triageSymptoms } from '../lib/triage.ts';
+import {
+  createTriagePlan,
+  isTriageReach,
+  isTriageSymptom,
+  isTriageTiming,
+  triageSymptoms,
+} from '../lib/triage.ts';
 
 void test('triage covers every visible symptom with an actionable plan', () => {
   for (const symptom of triageSymptoms) {
@@ -12,6 +18,15 @@ void test('triage covers every visible symptom with an actionable plan', () => {
     assert.ok(plan.acceptance);
     assert.ok(plan.evidence.length >= 4);
   }
+});
+
+void test('triage query guards reject arbitrary values', () => {
+  assert.equal(isTriageSymptom('buying-path'), true);
+  assert.equal(isTriageSymptom('anything'), false);
+  assert.equal(isTriageReach('mobile'), true);
+  assert.equal(isTriageReach('all-users'), false);
+  assert.equal(isTriageTiming('recent'), true);
+  assert.equal(isTriageTiming('yesterday'), false);
 });
 
 void test('urgent public failures route to Store Emergency Check', () => {

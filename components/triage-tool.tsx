@@ -22,35 +22,6 @@ const timingOptions: { id: TriageTiming; label: string }[] = [
   { id: 'ongoing', label: 'It has been an ongoing problem' },
 ];
 
-function Choice({
-  name,
-  value,
-  label,
-  checked,
-}: {
-  name: string;
-  value: string;
-  label: string;
-  checked: boolean;
-}) {
-  return (
-    <label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border-2 border-[#10261f]/15 bg-white/60 px-4 py-3 text-left text-sm font-bold leading-5 transition hover:border-[#10261f]/45 has-[:checked]:border-[#10261f] has-[:checked]:bg-[#10261f] has-[:checked]:text-white">
-      <input
-        className="peer sr-only"
-        type="radio"
-        name={name}
-        value={value}
-        defaultChecked={checked}
-        required
-      />
-      <span className="grid size-6 shrink-0 place-items-center rounded-full border border-[#10261f]/25 peer-checked:border-[#a8d66d] peer-checked:bg-[#a8d66d] peer-checked:text-[#10261f]">
-        <Check className="hidden size-3.5 stroke-[3] peer-checked:block" />
-      </span>
-      {label}
-    </label>
-  );
-}
-
 export function TriageTool({
   checkoutReady,
   plan,
@@ -90,50 +61,65 @@ export function TriageTool({
           ) : null}
         </div>
 
-        <fieldset className="mt-7">
-          <legend className="text-sm font-black">1. What is the main problem?</legend>
-          <div className="mt-3 grid gap-2.5">
-            {triageSymptoms.map((option) => (
-              <Choice
-                key={option.id}
-                name="symptom"
-                value={option.id}
-                label={option.label}
-                checked={selected.symptom === option.id}
-              />
-            ))}
-          </div>
-        </fieldset>
+        <label htmlFor="triage-symptom" className="mt-7 block text-sm font-black">
+          1. What is the main problem?
+        </label>
+        <select
+          id="triage-symptom"
+          name="symptom"
+          required
+          defaultValue={selected.symptom ?? ''}
+          className="mt-3 min-h-14 w-full rounded-2xl border-2 border-[#10261f]/20 bg-white px-4 py-3 text-sm font-bold"
+        >
+          <option value="" disabled>
+            Choose the closest symptom
+          </option>
+          {triageSymptoms.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
 
-        <fieldset className="mt-7">
-          <legend className="text-sm font-black">2. Who can reproduce it?</legend>
-          <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
-            {reachOptions.map((option) => (
-              <Choice
-                key={option.id}
-                name="reach"
-                value={option.id}
-                label={option.label}
-                checked={selected.reach === option.id}
-              />
-            ))}
-          </div>
-        </fieldset>
+        <label htmlFor="triage-reach" className="mt-7 block text-sm font-black">
+          2. Who can reproduce it?
+        </label>
+        <select
+          id="triage-reach"
+          name="reach"
+          required
+          defaultValue={selected.reach ?? ''}
+          className="mt-3 min-h-14 w-full rounded-2xl border-2 border-[#10261f]/20 bg-white px-4 py-3 text-sm font-bold"
+        >
+          <option value="" disabled>
+            Choose the observed reach
+          </option>
+          {reachOptions.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
 
-        <fieldset className="mt-7">
-          <legend className="text-sm font-black">3. When did it begin?</legend>
-          <div className="mt-3 grid gap-2.5">
-            {timingOptions.map((option) => (
-              <Choice
-                key={option.id}
-                name="timing"
-                value={option.id}
-                label={option.label}
-                checked={selected.timing === option.id}
-              />
-            ))}
-          </div>
-        </fieldset>
+        <label htmlFor="triage-timing" className="mt-7 block text-sm font-black">
+          3. When did it begin?
+        </label>
+        <select
+          id="triage-timing"
+          name="timing"
+          required
+          defaultValue={selected.timing ?? ''}
+          className="mt-3 min-h-14 w-full rounded-2xl border-2 border-[#10261f]/20 bg-white px-4 py-3 text-sm font-bold"
+        >
+          <option value="" disabled>
+            Choose the timing
+          </option>
+          {timingOptions.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
 
         <button
           type="submit"

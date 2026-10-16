@@ -49,7 +49,10 @@ export default function Home() {
     <main className="min-h-screen overflow-hidden bg-background text-foreground">
       <SiteHeader />
       <section className="relative border-b border-[#10261f]/15">
-        <div className="qa-grid absolute inset-0 opacity-50" aria-hidden="true" />
+        <div
+          className="qa-grid absolute inset-0 opacity-50"
+          aria-hidden="true"
+        />
         <div className="relative mx-auto grid max-w-7xl gap-12 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.06fr_.94fr] lg:items-center lg:px-10 lg:py-28">
           <div>
             <p className="inline-flex rounded-full border border-[#10261f]/20 bg-white/60 px-3 py-1.5 text-xs font-black uppercase tracking-[0.13em]">
@@ -77,6 +80,13 @@ export default function Home() {
                 Try the free triage first
               </Link>
             </div>
+            <Link
+              href="/products/store-emergency-check#worked-example"
+              className="mt-6 inline-flex items-center gap-2 text-sm font-bold underline decoration-[#477a5b] decoration-2 underline-offset-4"
+            >
+              See the evidence in a controlled demo
+              <ArrowRight className="size-4" />
+            </Link>
             <p className="mt-7 flex items-start gap-2 text-sm leading-6 text-muted-foreground">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#477a5b]" />
               Public pages only. No admin access, implementation or revenue
@@ -199,16 +209,28 @@ export default function Home() {
               Your implementer gets evidence, not a vague audit.
             </h2>
             <p className="mt-5 text-base leading-7 text-muted-foreground">
-              The service stops at public diagnosis and retesting. Your developer,
-              agency or in-house owner keeps control of the repair.
+              The service stops at public diagnosis and retesting. Your
+              developer, agency or in-house owner keeps control of the repair.
             </p>
           </div>
           <div className="grid gap-px overflow-hidden rounded-[1.75rem] border-2 border-[#10261f] bg-[#10261f] sm:grid-cols-2">
             {[
-              ['Observed', 'Exact URL, time, environment and reproduction result.'],
-              ['Why it matters', 'Likely customer impact, with uncertainty stated.'],
-              ['First repair', 'Prioritised direction for the person implementing the fix.'],
-              ['Done means', 'A public acceptance check and one retest after repair.'],
+              [
+                'Observed',
+                'Exact URL, time, environment and reproduction result.',
+              ],
+              [
+                'Why it matters',
+                'Likely customer impact, with uncertainty stated.',
+              ],
+              [
+                'First repair',
+                'Prioritised direction for the person implementing the fix.',
+              ],
+              [
+                'Done means',
+                'A public acceptance check and one retest after repair.',
+              ],
             ].map(([title, description], index) => (
               <article key={title} className="bg-[#f8f4e8] p-6 sm:p-8">
                 <span className="font-mono text-xs font-black text-[#477a5b]">

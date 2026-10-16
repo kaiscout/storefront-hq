@@ -7,12 +7,14 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { SiteFooter, SiteHeader } from '@/components/site-shell';
 import { productCheckoutConfig } from '@/lib/config';
 import { getProduct, productPrice, products } from '@/lib/products';
+import verification from '@/public/demo-evidence/verification.json';
 
 export function generateStaticParams() {
   return products.map((product) => ({ slug: product.id }));
@@ -99,6 +101,15 @@ export default async function ProductPage({
                   </Link>
                 ) : null}
               </div>
+              {product.id === 'store-emergency-check' ? (
+                <Link
+                  href="#worked-example"
+                  className="mt-6 inline-flex items-center gap-2 text-sm font-bold underline decoration-[#477a5b] decoration-2 underline-offset-4"
+                >
+                  See a worked example before you decide
+                  <ArrowRight className="size-4" />
+                </Link>
+              ) : null}
               {!checkoutReady ? (
                 <p className="mt-5 flex max-w-xl gap-2 rounded-xl border border-[#f2c14e] bg-[#f2c14e]/20 p-4 text-sm leading-6">
                   <CircleAlert className="mt-0.5 size-4 shrink-0" />
@@ -140,6 +151,121 @@ export default async function ProductPage({
           </div>
         </div>
       </section>
+      {product.id === 'store-emergency-check' ? (
+        <section
+          id="worked-example"
+          aria-labelledby="worked-example-title"
+          className="scroll-mt-8 border-b border-[#10261f]/15 bg-[#e9efdf]/60"
+        >
+          <div className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16 lg:px-10">
+            <p className="font-mono text-xs font-black uppercase tracking-[.16em] text-[#477a5b]">
+              Controlled demonstration · one example issue
+            </p>
+            <h2
+              id="worked-example-title"
+              className="mt-4 max-w-3xl text-3xl font-black tracking-[-0.04em] sm:text-5xl"
+            >
+              Navy selected. Natural lands in the cart.
+            </h2>
+            <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground">
+              Here is what evidence and a useful repair brief look like. We
+              intentionally built this defect into our own test storefront. The
+              captures below are from that fixture, not a client result or proof
+              of increased sales.
+            </p>
+            <div className="mt-8 grid gap-8 lg:grid-cols-[1.1fr_.9fr] lg:items-start">
+              <div className="rounded-2xl border border-[#10261f]/15 bg-white/75 p-6">
+                <dl className="space-y-5 text-sm leading-6 sm:text-base">
+                  <div>
+                    <dt className="font-black">Observed</dt>
+                    <dd className="mt-1 text-muted-foreground">
+                      On the before version, choose Navy and add the bag. The
+                      selection says Navy, but the cart line says Natural. A
+                      buyer could receive the wrong variant; no customer impact
+                      or lost revenue was measured.
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-black">
+                      Repair direction for your developer
+                    </dt>
+                    <dd className="mt-1 text-muted-foreground">
+                      Pass the selected variant into the cart action instead of
+                      the fixed default. On a real store, review the theme and
+                      app behaviour before implementing a change.
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-black">Acceptance check</dt>
+                    <dd className="mt-1 text-muted-foreground">
+                      Add Navy and Natural separately in fresh sessions on
+                      mobile and desktop. Each cart line must match the selected
+                      colour. The recorded corrected fixture passes this check.
+                    </dd>
+                  </div>
+                </dl>
+                <p className="mt-6 border-t border-[#10261f]/15 pt-4 text-xs leading-5 text-muted-foreground">
+                  Recorded {verification.checkedAt} · Chromium · 390 × 844 and
+                  1440 × 1000 · local controlled fixture. These are historical
+                  captures; use the links below to inspect the published demo.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                {(['before', 'after'] as const).map((mode) => (
+                  <figure
+                    key={mode}
+                    className="overflow-hidden rounded-2xl border border-[#10261f]/15 bg-white"
+                  >
+                    <figcaption className="p-3 text-sm font-black">
+                      {mode === 'before'
+                        ? 'Before: Natural in cart'
+                        : 'After: Navy in cart'}
+                    </figcaption>
+                    <a href={`/demo-evidence/${mode}-mobile.png`}>
+                      <Image
+                        src={`/demo-evidence/${mode}-mobile.png`}
+                        alt={
+                          mode === 'before'
+                            ? 'Recorded demo cart detail showing Natural after Navy was selected.'
+                            : 'Recorded corrected demo cart detail showing Navy after Navy was selected.'
+                        }
+                        width={390}
+                        height={1640}
+                        className="h-80 w-full border-t object-cover object-bottom"
+                      />
+                      <span className="block p-3 text-xs font-bold underline underline-offset-4">
+                        Open full capture
+                      </span>
+                    </a>
+                  </figure>
+                ))}
+              </div>
+            </div>
+            <div className="mt-7 flex flex-wrap gap-x-6 gap-y-4 text-sm font-bold">
+              <Link
+                href="/demo/before"
+                className="underline underline-offset-4"
+              >
+                Try the before version
+              </Link>
+              <Link href="/demo/after" className="underline underline-offset-4">
+                Retest the corrected version
+              </Link>
+              <Link
+                href="/sample-report"
+                className="underline underline-offset-4"
+              >
+                Inspect the evidence report
+              </Link>
+            </div>
+            <p className="mt-7 max-w-3xl text-sm leading-6 text-muted-foreground">
+              Your £99 check covers one reported public storefront issue, with
+              initial diagnosis within 24 hours and one public retest after
+              repair. Your developer or agency implements the repair.
+            </p>
+          </div>
+        </section>
+      ) : null}
       <section className="mx-auto max-w-6xl px-5 py-14 sm:px-8 lg:px-10">
         <h2 className="text-3xl font-black tracking-[-0.04em]">
           Before you buy

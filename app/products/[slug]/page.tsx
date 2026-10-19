@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation';
 import { SiteFooter, SiteHeader } from '@/components/site-shell';
 import { productCheckoutConfig } from '@/lib/config';
 import { getProduct, productPrice, products } from '@/lib/products';
+import { pageMetadata } from '@/lib/metadata';
 import verification from '@/public/demo-evidence/verification.json';
 
 export function generateStaticParams() {
@@ -27,7 +28,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const product = getProduct((await params).slug);
   return product
-    ? { title: `${product.name} | Storefront HQ`, description: product.promise }
+    ? pageMetadata(product.name, product.promise, `/products/${product.id}`)
     : {};
 }
 
@@ -47,7 +48,7 @@ export default async function ProductPage({
       <section className="border-b border-[#10261f]/15">
         <div className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-20 lg:px-10">
           <Link
-            href="/#products"
+            href="/products"
             className="inline-flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="size-4" /> All products

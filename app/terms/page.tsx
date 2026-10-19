@@ -3,8 +3,14 @@ import Link from 'next/link';
 import { SiteFooter, SiteHeader } from '@/components/site-shell';
 import { publicConfig } from '@/lib/config';
 import { products, productPrice } from '@/lib/products';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
+export const metadata = pageMetadata(
+  'Product terms',
+  'Storefront HQ seller identity, product prices, delivery scope and cancellation terms.',
+  '/terms',
+);
 
 export default function TermsPage() {
   const config = publicConfig();

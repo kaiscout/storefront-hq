@@ -5,8 +5,14 @@ import { SiteFooter, SiteHeader } from '@/components/site-shell';
 import { StartForm } from '@/components/start-form';
 import { publicConfig } from '@/lib/config';
 import { getProduct } from '@/lib/products';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
+export const metadata = pageMetadata(
+  'Product enquiry',
+  'Check product fit before paying. Tell Storefront HQ about your public store and the issue or deadline.',
+  '/start',
+);
 
 export default async function StartPage({
   searchParams,
@@ -20,13 +26,13 @@ export default async function StartPage({
       <SiteHeader />
       <div className="mx-auto max-w-4xl px-5 py-10 sm:px-8 sm:py-16">
         <Link
-          href={selected ? `/products/${selected.id}` : '/#products'}
+          href={selected ? `/products/${selected.id}` : '/products'}
           className="inline-flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-4" /> Back to{' '}
           {selected ? selected.name : 'products'}
         </Link>
-        <div className="mt-8 grid gap-9 rounded-[2rem] border-2 border-foreground bg-card p-6 shadow-[10px_10px_0_#10261f] sm:p-10">
+        <div className="form-card mt-8 grid gap-9">
           <div>
             <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-[#477a5b]">
               Storefront HQ · Product enquiry · No commitment
@@ -47,6 +53,17 @@ export default async function StartPage({
             <p className="mb-6 mt-3 text-base leading-7 text-muted-foreground">
               Submitting this form stores your request but does not verify your
               email address or trigger an automatic email.
+            </p>
+            <p className="mb-6 text-sm leading-6 text-muted-foreground">
+              For general questions, existing-order support or a message sent
+              automatically to our inbox, use the{' '}
+              <Link
+                href="/contact"
+                className="font-semibold underline underline-offset-4"
+              >
+                Contact form
+              </Link>
+              .
             </p>
             <StartForm
               enabled={config.intakeReady}

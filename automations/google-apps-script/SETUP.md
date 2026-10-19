@@ -1,5 +1,36 @@
 # Dedicated Gmail + Apps Script setup
 
+## Website inbox notifications (19 October 2026)
+
+The isolated `WebsiteInbox.gs` module delivers queued Contact
+and Reviews form notifications to **front.storecheckqa@gmail.com only**. It checks
+the live Gmail profile before claiming work, uses the already approved Gmail
+scope, never uses a visitor-supplied destination or Reply-To, and acknowledges the
+confirmed Gmail message ID. The public form does not email its submitter, verify
+email ownership, create email consent or publish a review.
+
+Add `WebsiteInbox.gs` to the existing dedicated-account project without replacing
+its saved bridge code, then run `installWebsiteInboxTrigger` once. This creates
+one idempotently installed five-minute notification trigger and leaves existing
+triggers unchanged. No new scope or public web-app deployment is needed.
+`sendWebsiteNotifications` can run once to
+check a clearly marked operator-only test. Verify the resulting message in the
+business inbox and the row's `notification_state = sent`; a build is not proof of
+email delivery. An uncertain send is not automatically replayed: check Gmail Sent
+and reconcile the message ID before a manual retry.
+
+Private submissions and review moderation are at `/ops/website`, behind the same
+operator identity allowlist as the existing control room. Only a review with
+separate publication permission can be published. Pending/private records stay
+off public queries. The existing privacy-cleanup job removes nonpublished website
+records after 90 days and expires anti-abuse counters; the operator handles inbox
+retention and withdrawal requests. Never count a form, test, draft or review as a
+sale.
+
+The older setup notes below describe the original bridge. The saved code now also
+supports tightly gated same-thread replies and these fixed-destination internal
+notifications; statements below that it contains no send call are historical.
+
 Use one new, legitimate business account with a truthful sender identity. Do not create burner accounts, rotate accounts, or bypass phone/recovery verification. Google may require verification even when a new number or recovery email was not planned.
 
 Gmail is used only for:

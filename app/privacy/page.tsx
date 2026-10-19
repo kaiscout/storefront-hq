@@ -2,18 +2,26 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 import { publicConfig } from '@/lib/config';
+import { SiteHeader, SiteFooter } from '@/components/site-shell';
+import { pageMetadata } from '@/lib/metadata';
 import {
   UNQUALIFIED_RESEARCH_RETENTION_DAYS,
   UNSUCCESSFUL_LEAD_RETENTION_DAYS,
 } from '@/lib/operations';
 
 export const dynamic = 'force-dynamic';
+export const metadata = pageMetadata(
+  'Privacy notice',
+  'How Storefront HQ handles enquiries, contact messages, feedback and customer data.',
+  '/privacy',
+);
 
 export default function PrivacyPage() {
   const config = publicConfig();
   return (
-    <main className="min-h-screen bg-background px-5 py-10 text-foreground sm:px-8 sm:py-16">
-      <article className="mx-auto max-w-3xl">
+    <main className="min-h-screen bg-background text-foreground">
+      <SiteHeader />
+      <article className="mx-auto max-w-3xl px-5 py-12 sm:px-8 sm:py-16">
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
@@ -21,7 +29,7 @@ export default function PrivacyPage() {
           <ArrowLeft className="size-4" /> Home
         </Link>
         <p className="mt-10 font-mono text-xs uppercase tracking-[0.16em] text-[#477a5b]">
-          Privacy notice · Last updated 10 October 2026
+          Privacy notice · Last updated 19 October 2026
         </p>
         <h1 className="mt-4 text-5xl font-black tracking-[-0.05em]">
           Plain-English privacy notice
@@ -71,6 +79,30 @@ export default function PrivacyPage() {
             </p>
           </section>
           <section>
+            <h2>Contact messages and feedback</h2>
+            <p>
+              Contact forms collect your name, email, topic and message, plus
+              any optional company, public store URL or product context.
+              Messages are stored privately on our Cloudflare-hosted site and
+              emailed to our dedicated Google inbox so we can handle your
+              request. A form submission does not verify email ownership,
+              subscribe you to marketing or trigger an automatic email to the
+              entered address.
+            </p>
+            <p>
+              Feedback forms also collect your rating, experience type and
+              optional public display name. Your contact name, email and store
+              URL are not included in the public review display. If you
+              separately permit publication, we may display your chosen name,
+              rating, feedback, product or free-tool context and submission
+              month after moderation. Please do not include private information
+              in your feedback text. Publication consent is optional and can be
+              withdrawn by emailing us. We use your requested contact details to
+              handle the enquiry or feedback; public review display relies on
+              that separate permission.
+            </p>
+          </section>
+          <section>
             <h2>Processors and sources</h2>
             <p>
               Public pages may be processed with Firecrawl. Email replies may be
@@ -90,6 +122,16 @@ export default function PrivacyPage() {
               required for legal and accounting duties. A minimal suppression
               record may be kept to make sure an objection is honoured.
             </p>
+            <p>
+              Contact and unpublished feedback records are removed from the site
+              after 90 days. Published feedback is kept while permission remains
+              valid and it remains relevant; email us to withdraw it. The
+              notification email may remain in the business inbox under the same
+              enquiry-retention policy, except where a contract, dispute or
+              legal duty requires retention. Hashed anti-abuse counters are used
+              to limit form spam and are cleared after their short operational
+              window.
+            </p>
           </section>
           <section>
             <h2>Your choices and rights</h2>
@@ -103,6 +145,7 @@ export default function PrivacyPage() {
           </section>
         </div>
       </article>
+      <SiteFooter />
     </main>
   );
 }

@@ -7,6 +7,54 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 
+// Private form records. Public review queries select an explicit safe projection.
+export const websiteSubmissions = sqliteTable(
+  'website_submissions',
+  {
+    id: text('id').primaryKey(),
+    fingerprint: text('fingerprint').notNull(),
+    kind: text('kind').notNull(),
+    contactName: text('contact_name').notNull(),
+    contactEmail: text('contact_email').notNull(),
+    company: text('company'),
+    storeUrl: text('store_url'),
+    topic: text('topic').notNull(),
+    productId: text('product_id'),
+    message: text('message').notNull(),
+    rating: integer('rating'),
+    displayName: text('display_name'),
+    publishConsent: integer('publish_consent').notNull().default(0),
+    moderationStatus: text('moderation_status').notNull().default('pending'),
+    notificationState: text('notification_state').notNull().default('queued'),
+    notificationClaim: text('notification_claim'),
+    notificationClaimedAt: text('notification_claimed_at'),
+    notificationMessageId: text('notification_message_id'),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('idx_website_submissions_notification').on(
+      table.notificationState,
+      table.createdAt,
+    ),
+    index('idx_website_submissions_reviews').on(
+      table.kind,
+      table.moderationStatus,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const websiteFormLimits = sqliteTable('website_form_limits', {
+  identifier: text('identifier').primaryKey(),
+  windowStartedAt: integer('window_started_at').notNull(),
+  attempts: integer('attempts').notNull(),
+});
+
 export const firecrawlCreditPeriods = sqliteTable('firecrawl_credit_periods', {
   period: text('period').primaryKey(),
   endsAt: text('ends_at').notNull(),

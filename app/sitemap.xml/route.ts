@@ -3,7 +3,25 @@ const siteUrl = (
 ).replace(/\/$/, '');
 
 const routes = [
-  { path: '', frequency: 'weekly', priority: '1.0', lastmod: '2026-10-14' },
+  { path: '', frequency: 'weekly', priority: '1.0', lastmod: '2026-10-19' },
+  {
+    path: '/products',
+    frequency: 'monthly',
+    priority: '0.9',
+    lastmod: '2026-10-19',
+  },
+  {
+    path: '/contact',
+    frequency: 'monthly',
+    priority: '0.8',
+    lastmod: '2026-10-19',
+  },
+  {
+    path: '/reviews',
+    frequency: 'weekly',
+    priority: '0.7',
+    lastmod: '2026-10-19',
+  },
   {
     path: '/triage',
     frequency: 'monthly',

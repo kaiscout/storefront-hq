@@ -5,14 +5,15 @@ import Link from 'next/link';
 import { SiteFooter, SiteHeader } from '@/components/site-shell';
 import { agencyInquiryMailto } from '@/lib/contact';
 import { publicConfig } from '@/lib/config';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Agency Partners | Storefront HQ',
-  description:
-    'Independent public-store diagnosis for Shopify agencies, developers and ecommerce implementers before release or client handoff.',
-};
+export const metadata: Metadata = pageMetadata(
+  'Agency Partners',
+  'Independent public-store diagnosis for Shopify agencies, developers and ecommerce implementers before release or client handoff.',
+  '/agency-partners',
+);
 
 export default function AgencyPartnersPage() {
   const config = publicConfig();
@@ -79,9 +80,18 @@ export default function AgencyPartnersPage() {
       <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
         <div className="grid gap-6 md:grid-cols-3">
           {[
-            ['Before release', 'Check one high-risk public journey after a theme, app, market or migration change.'],
-            ['During incident response', 'Get a second set of public-browser evidence without adding another person to the client backend.'],
-            ['Before client handoff', 'Give the implementer an acceptance check that can be repeated after repair.'],
+            [
+              'Before release',
+              'Check one high-risk public journey after a theme, app, market or migration change.',
+            ],
+            [
+              'During incident response',
+              'Get a second set of public-browser evidence without adding another person to the client backend.',
+            ],
+            [
+              'Before client handoff',
+              'Give the implementer an acceptance check that can be repeated after repair.',
+            ],
           ].map(([title, description], index) => (
             <article
               key={title}

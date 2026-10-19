@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 
@@ -27,7 +27,9 @@ export function StartForm({
   const [bookingUrl, setBookingUrl] = useState('');
   const [intakeId, setIntakeId] = useState('');
 
-  async function submit(formData: FormData) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
     setState('submitting');
     setMessage('');
     const value = (key: string) => {
@@ -44,24 +46,31 @@ export function StartForm({
       consent: formData.get('consent') === 'on',
       website: value('website'),
     };
-    const response = await fetch('/api/intake', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const result = (await response.json()) as {
-      error?: string;
-      id?: string;
-      bookingUrl?: string | null;
-    };
-    if (!response.ok) {
+    try {
+      const response = await fetch('/api/intake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = (await response.json()) as {
+        error?: string;
+        id?: string;
+        bookingUrl?: string | null;
+      };
+      if (!response.ok) {
+        setState('error');
+        setMessage(result.error ?? 'Something went wrong. Please try again.');
+        return;
+      }
+      setIntakeId(result.id ?? '');
+      setBookingUrl(result.bookingUrl ?? '');
+      setState('success');
+    } catch {
       setState('error');
-      setMessage(result.error ?? 'Something went wrong. Please try again.');
-      return;
+      setMessage(
+        'We could not confirm receipt. Your details are still here. Retry or use the Contact page.',
+      );
     }
-    setIntakeId(result.id ?? '');
-    setBookingUrl(result.bookingUrl ?? '');
-    setState('success');
   }
 
   if (state === 'success') {
@@ -99,7 +108,13 @@ export function StartForm({
   }
 
   return (
-    <form action={submit} className="space-y-5" aria-describedby="form-status">
+    <form
+      action="/api/intake"
+      method="post"
+      onSubmit={submit}
+      className="space-y-5"
+      aria-describedby="form-status"
+    >
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="companyName">Company / store name</Label>

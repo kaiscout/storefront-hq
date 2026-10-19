@@ -48,18 +48,20 @@ export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-background text-foreground">
       <SiteHeader />
-      <section className="relative border-b border-[#10261f]/15">
+      <section className="relative border-b border-[#10261f]/10 bg-[#f0f1e8]">
         <div
-          className="qa-grid absolute inset-0 opacity-50"
+          className="qa-grid absolute inset-0 opacity-15"
           aria-hidden="true"
         />
-        <div className="relative mx-auto grid max-w-7xl gap-12 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.06fr_.94fr] lg:items-center lg:px-10 lg:py-28">
+        <div className="relative mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[1.06fr_.94fr] lg:items-center lg:px-10 lg:py-24">
           <div>
             <p className="inline-flex rounded-full border border-[#10261f]/20 bg-white/60 px-3 py-1.5 text-xs font-black uppercase tracking-[0.13em]">
               One public storefront problem · £99 one-time
             </p>
-            <h1 className="mt-7 max-w-4xl text-balance text-[clamp(3rem,6.2vw,5.8rem)] font-black leading-[.92] tracking-[-0.06em]">
-              Something broke. Find the next fix fast.
+            <h1 className="mt-7 max-w-4xl text-balance text-[clamp(3rem,5.8vw,5.3rem)] font-extrabold leading-[1.02] tracking-[-0.06em]">
+              Something broke.
+              <br />
+              <span className="text-[#477a5b]">Find the next fix fast.</span>
             </h1>
             <p className="mt-7 max-w-2xl text-pretty text-lg leading-8 text-muted-foreground sm:text-xl">
               Send one public buying-path problem. Storefront HQ reproduces it,
@@ -69,7 +71,7 @@ export default function Home() {
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
                 href="/products/store-emergency-check"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#ff6b35] px-6 text-base font-black text-white shadow-[0_7px_0_#10261f] hover:bg-[#e95725]"
+                className="button-primary"
               >
                 See the £99 emergency check <ArrowRight className="size-4" />
               </Link>
@@ -99,7 +101,7 @@ export default function Home() {
               className="absolute -right-8 -top-10 size-32 rounded-full bg-[#f2c14e]/70 blur-2xl"
               aria-hidden="true"
             />
-            <div className="relative rotate-1 rounded-[2rem] border-2 border-[#10261f] bg-[#10261f] p-6 text-[#f8f4e8] shadow-[14px_14px_0_#ff6b35] sm:p-8">
+            <div className="relative rounded-[2rem] border border-[#10261f] bg-[#10261f] p-6 text-[#f8f4e8] shadow-2xl shadow-[#10261f]/15 sm:p-8">
               <div className="flex items-center justify-between gap-4">
                 <p className="font-mono text-xs font-bold uppercase tracking-[.18em] text-[#a8d66d]">
                   Store Emergency Check
@@ -136,7 +138,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="border-b border-[#10261f]/15 bg-[#f2c14e]">
+      <section className="border-b border-[#10261f]/10 bg-[#e8eddf]">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 py-12 sm:px-8 lg:grid-cols-[.8fr_1.2fr] lg:items-center lg:px-10">
           <div>
             <p className="font-mono text-xs font-black uppercase tracking-[.18em]">
@@ -146,7 +148,7 @@ export default function Home() {
               Triage it in three questions.
             </h2>
           </div>
-          <div className="rounded-[1.75rem] border-2 border-[#10261f] bg-[#f8f4e8] p-6 shadow-[8px_8px_0_#10261f] sm:p-7">
+          <div className="rounded-[1.75rem] border border-[#10261f]/15 bg-[#fffefb] p-6 sm:p-7">
             <div className="flex gap-4">
               <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#10261f] text-white">
                 <MousePointerClick className="size-5" />
@@ -178,7 +180,7 @@ export default function Home() {
           <p className="font-mono text-xs font-bold uppercase tracking-[.18em] text-[#477a5b]">
             Start with the bottleneck
           </p>
-          <h2 className="mt-4 text-4xl font-black tracking-[-0.045em] sm:text-6xl">
+          <h2 className="mt-4 text-4xl font-extrabold tracking-[-0.045em] sm:text-5xl">
             One urgent first step. Three focused alternatives.
           </h2>
           <p className="mt-5 text-lg leading-8 text-muted-foreground">
@@ -247,7 +249,7 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
-        <div className="rounded-[2rem] border-2 border-[#10261f] bg-[#eaf2dc] p-7 shadow-[10px_10px_0_#10261f] sm:p-10 lg:flex lg:items-center lg:justify-between lg:gap-10">
+        <div className="rounded-[2rem] border border-[#10261f]/15 bg-[#eaf2dc] p-7 sm:p-10 lg:flex lg:items-center lg:justify-between lg:gap-10">
           <div className="max-w-3xl">
             <p className="font-mono text-xs font-black uppercase tracking-[.18em] text-[#477a5b]">
               Agencies and implementers
@@ -270,6 +272,42 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="site-container pb-20">
+        <div className="grid gap-6 md:grid-cols-2">
+          <Link
+            href="/contact"
+            className="rounded-3xl border border-[#10261f]/15 bg-white/65 p-7 transition-colors hover:bg-white"
+          >
+            <p className="eyebrow">Talk to us</p>
+            <h2 className="mt-3 text-2xl font-bold tracking-tight">
+              Have a question before you commit?
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-muted-foreground">
+              Get help with product fit, an existing order or a public
+              storefront problem.
+            </p>
+            <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold">
+              Contact Storefront HQ <ArrowRight className="size-4" />
+            </span>
+          </Link>
+          <Link
+            href="/reviews"
+            className="rounded-3xl border border-[#10261f]/15 bg-white/65 p-7 transition-colors hover:bg-white"
+          >
+            <p className="eyebrow">Real feedback</p>
+            <h2 className="mt-3 text-2xl font-bold tracking-tight">
+              Used a product or tried free triage?
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-muted-foreground">
+              Share what helped and what could be better. Reviews stay private
+              until permission and moderation.
+            </p>
+            <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold">
+              Reviews & feedback <ArrowRight className="size-4" />
+            </span>
+          </Link>
+        </div>
+      </section>
       <SiteFooter />
     </main>
   );

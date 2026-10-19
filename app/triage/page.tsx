@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { SiteFooter, SiteHeader } from '@/components/site-shell';
 import { TriageTool } from '@/components/triage-tool';
 import { productCheckoutConfig } from '@/lib/config';
+import { pageMetadata } from '@/lib/metadata';
 import {
   createTriagePlan,
   isTriageReach,
@@ -12,11 +13,11 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Free Storefront Triage | Storefront HQ',
-  description:
-    'Answer three questions and get a practical first-check plan for a broken buying path, weak product page, launch or campaign.',
-};
+export const metadata: Metadata = pageMetadata(
+  'Free Storefront Triage',
+  'Answer three questions and get a practical first-check plan for a broken buying path, weak product page, launch or campaign.',
+  '/triage',
+);
 
 export default async function TriagePage({
   searchParams,
@@ -56,9 +57,9 @@ export default async function TriagePage({
             Find the next useful check before you touch the store.
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-muted-foreground">
-            Choose the symptom, reach and timing. You’ll get a focused public-store
-            test plan, an acceptance check and the evidence worth preserving.
-            Nothing is submitted and no admin access is needed.
+            Choose the symptom, reach and timing. You’ll get a focused
+            public-store test plan, an acceptance check and the evidence worth
+            preserving. Nothing is submitted and no admin access is needed.
           </p>
           <div className="mt-10">
             <TriageTool

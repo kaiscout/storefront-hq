@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-const siteUrl = process.env.PUBLIC_SITE_URL?.trim() || 'http://localhost:3000';
+const siteUrl = process.env.PUBLIC_SITE_URL?.trim() || 'https://storefronthq.co.uk';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

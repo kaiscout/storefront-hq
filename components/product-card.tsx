@@ -15,10 +15,10 @@ export function ProductCard({
   return (
     <article
       className={cn(
-        'group relative flex h-full flex-col rounded-[1.75rem] border-2 p-6 transition-transform hover:-translate-y-1 sm:p-7',
+        'group relative flex h-full flex-col rounded-[1.75rem] border p-6 sm:p-7',
         featured
-          ? 'border-[#10261f] bg-[#10261f] text-[#f8f4e8] shadow-[10px_10px_0_#ff6b35]'
-          : 'border-[#10261f]/20 bg-white/55 shadow-[8px_8px_0_rgba(16,38,31,0.08)]',
+          ? 'border-[#10261f] bg-[#10261f] text-[#f8f4e8] shadow-xl shadow-[#10261f]/10'
+          : 'border-[#10261f]/15 bg-[#fffefb] shadow-sm',
       )}
     >
       {featured ? (

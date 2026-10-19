@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { LeadActions } from '@/components/ops/lead-actions';
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { integrationState, publicConfig } from '@/lib/config';
@@ -152,6 +153,9 @@ export default async function OpsPage() {
       </header>
 
       <div className="mx-auto max-w-[1500px] space-y-6 px-5 py-7 sm:px-8 lg:px-10">
+        <Link href="/ops/website" className="button-primary">
+          Open website inbox & review moderation
+        </Link>
         <section className="grid gap-4 lg:grid-cols-[1.45fr_0.55fr]">
           <div className="grid gap-3 sm:grid-cols-5">
             {stages.map(({ key, label, icon: Icon }) => (

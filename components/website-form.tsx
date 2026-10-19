@@ -159,7 +159,7 @@ export function WebsiteForm({
       </div>
       <fieldset
         disabled={!enabled || state === 'submitting'}
-        className="space-y-6 disabled:opacity-70"
+        className="min-w-0 space-y-6 disabled:opacity-70"
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
@@ -236,10 +236,10 @@ export function WebsiteForm({
                 </select>
               </div>
             </div>
-            <fieldset>
+            <fieldset className="min-w-0">
               <legend className="form-label">Your overall rating *</legend>
               <div
-                className="flex gap-2"
+                className="flex flex-wrap gap-1 sm:gap-2"
                 role="radiogroup"
                 aria-label="Overall rating"
               >
@@ -255,7 +255,7 @@ export function WebsiteForm({
                       required
                     />
                     <span
-                      className={`flex size-12 items-center justify-center rounded-xl border peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#b94b23] ${rating >= stars ? 'border-[#9a6710] bg-[#f8e7b7] text-[#855500]' : 'border-[#b5bdb1] bg-white text-[#53655c]'}`}
+                      className={`flex size-9 items-center justify-center rounded-xl border peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#b94b23] sm:size-12 ${rating >= stars ? 'border-[#9a6710] bg-[#f8e7b7] text-[#855500]' : 'border-[#b5bdb1] bg-white text-[#53655c]'}`}
                     >
                       <Star
                         className="size-5"

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { StorefrontProduct } from '@/lib/products';
 import { productPrice } from '@/lib/products';
 import { cn } from '@/lib/utils';
+import { ProductIcon } from '@/components/brand';
 
 export function ProductCard({
   product,
@@ -26,6 +27,13 @@ export function ProductCard({
           Best first paid step
         </span>
       ) : null}
+      <ProductIcon
+        product={product.id}
+        className={cn(
+          'mb-5 size-16',
+          featured ? 'text-[#b8d4a1]' : 'text-[#294b3b]',
+        )}
+      />
       <p
         className={cn(
           'font-mono text-[11px] font-bold uppercase tracking-[0.16em]',

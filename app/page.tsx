@@ -1,17 +1,9 @@
-import {
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  Clock3,
-  FileSearch,
-  MousePointerClick,
-  RotateCw,
-  ShieldCheck,
-} from 'lucide-react';
+import { ArrowRight, MousePointerClick, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 import { ProductCard } from '@/components/product-card';
 import { SiteFooter, SiteHeader } from '@/components/site-shell';
+import { StorefrontIllustration } from '@/components/storefront-illustration';
 import { products } from '@/lib/products';
 
 const homepageProducts = [
@@ -21,39 +13,16 @@ const homepageProducts = [
   products.find((product) => product.id === 'seller-campaign-club')!,
 ];
 
-const emergencySteps = [
-  {
-    icon: FileSearch,
-    number: '01',
-    label: 'Reproduce one reported public-storefront issue',
-  },
-  {
-    icon: AlertTriangle,
-    number: '02',
-    label: 'Show the likely failure point and customer impact',
-  },
-  {
-    icon: CheckCircle2,
-    number: '03',
-    label: 'Give your implementer a repair and acceptance brief',
-  },
-  {
-    icon: RotateCw,
-    number: '04',
-    label: 'Retest the same public issue after your repair',
-  },
-];
-
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-hidden bg-background text-foreground">
+    <main className="min-h-screen bg-background text-foreground">
       <SiteHeader />
       <section className="relative border-b border-[#10261f]/10 bg-[#f0f1e8]">
         <div
           className="qa-grid absolute inset-0 opacity-15"
           aria-hidden="true"
         />
-        <div className="relative mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[1.06fr_.94fr] lg:items-center lg:px-10 lg:py-24">
+        <div className="relative mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[1.06fr_.94fr] lg:items-center lg:px-10 lg:py-20">
           <div>
             <p className="inline-flex rounded-full border border-[#10261f]/20 bg-white/60 px-3 py-1.5 text-xs font-black uppercase tracking-[0.13em]">
               One public storefront problem · £99 one-time
@@ -96,45 +65,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="relative">
-            <div
-              className="absolute -right-8 -top-10 size-32 rounded-full bg-[#f2c14e]/70 blur-2xl"
-              aria-hidden="true"
-            />
-            <div className="relative rounded-[2rem] border border-[#10261f] bg-[#10261f] p-6 text-[#f8f4e8] shadow-2xl shadow-[#10261f]/15 sm:p-8">
-              <div className="flex items-center justify-between gap-4">
-                <p className="font-mono text-xs font-bold uppercase tracking-[.18em] text-[#a8d66d]">
-                  Store Emergency Check
-                </p>
-                <span className="rounded-full bg-[#f2c14e] px-3 py-1 text-xs font-black text-[#10261f]">
-                  £99
-                </span>
-              </div>
-              <div className="mt-7 space-y-4">
-                {emergencySteps.map(({ icon: Icon, number, label }) => (
-                  <div
-                    key={number}
-                    className="grid grid-cols-[38px_1fr_auto] items-center gap-3 rounded-2xl border border-white/10 bg-white/[.055] p-4"
-                  >
-                    <span className="grid size-9 place-items-center rounded-xl bg-[#a8d66d] text-[#10261f]">
-                      <Icon className="size-4" />
-                    </span>
-                    <span className="text-sm font-bold sm:text-base">
-                      {label}
-                    </span>
-                    <strong className="font-mono text-sm text-[#f2c14e]">
-                      {number}
-                    </strong>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-6 flex gap-2 text-sm leading-6 text-[#b9c6b7]">
-                <Clock3 className="mt-0.5 size-4 shrink-0 text-[#f2c14e]" />
-                Initial diagnosis within 24 hours after confirmed payment and
-                receipt of the required public URLs.
-              </p>
-            </div>
-          </div>
+          <StorefrontIllustration />
         </div>
       </section>
 

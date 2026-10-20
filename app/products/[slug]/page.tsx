@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { SiteFooter, SiteHeader } from '@/components/site-shell';
+import { ProductIcon } from '@/components/brand';
 import { productCheckoutConfig } from '@/lib/config';
 import { getProduct, productPrice, products } from '@/lib/products';
 import { pageMetadata } from '@/lib/metadata';
@@ -55,6 +56,10 @@ export default async function ProductPage({
           </Link>
           <div className="mt-9 grid gap-10 lg:grid-cols-[1.1fr_.9fr] lg:items-start">
             <div>
+              <ProductIcon
+                product={product.id}
+                className="mb-5 size-20 text-[#294b3b]"
+              />
               <p className="font-mono text-xs font-black uppercase tracking-[.18em] text-[#477a5b]">
                 {product.eyebrow}
               </p>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Menu, X } from 'lucide-react';
 
 const links = [
@@ -17,12 +17,24 @@ const links = [
 export function SiteNavigation() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        menuButton.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', dismiss);
+    return () => document.removeEventListener('keydown', dismiss);
+  }, [open]);
   const active = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
   return (
     <>
       <nav
-        className="hidden items-center gap-1 xl:flex"
+        className="hidden items-center gap-0.5 rounded-full border border-[#10261f]/8 bg-[#f1f2e9]/70 p-1 xl:flex"
         aria-label="Main navigation"
       >
         {links.map(([label, href]) => (
@@ -30,7 +42,7 @@ export function SiteNavigation() {
             key={href}
             href={href}
             aria-current={active(href) ? 'page' : undefined}
-            className={`rounded-full px-3.5 py-2.5 text-sm font-semibold transition-colors ${active(href) ? 'bg-[#e8eddf] text-[#10261f]' : 'text-[#53655c] hover:bg-white hover:text-[#10261f]'}`}
+            className={`rounded-full px-3 py-2.5 text-[13px] font-semibold transition-colors ${active(href) ? 'bg-white text-[#10261f] shadow-sm' : 'text-[#53655c] hover:bg-white/80 hover:text-[#10261f]'}`}
           >
             {label}
           </Link>
@@ -44,6 +56,7 @@ export function SiteNavigation() {
           Check a store issue <ArrowUpRight className="size-4" />
         </Link>
         <button
+          ref={menuButton}
           type="button"
           onClick={() => setOpen(!open)}
           aria-expanded={open}

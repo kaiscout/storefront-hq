@@ -1,29 +1,20 @@
-import { ArrowUpRight, Store } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 
 import { SiteNavigation } from '@/components/site-navigation';
+import { BrandSignature } from '@/components/brand';
 import { publicConfig } from '@/lib/config';
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-[#10261f]/10 bg-[#fbfaf5]/95 backdrop-blur-xl">
+    <header className="site-header sticky top-0 z-40 border-b border-[#10261f]/10 bg-[#fbfaf5]/95 backdrop-blur-xl">
       <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-4 sm:px-8 lg:px-10">
         <Link
           href="/"
-          className="flex items-center gap-3"
+          className="shrink-0 rounded-xl"
           aria-label="Storefront HQ home"
         >
-          <span className="grid size-11 place-items-center rounded-2xl bg-[#10261f] text-[#f8f4e8]">
-            <Store className="size-5" />
-          </span>
-          <span>
-            <span className="block text-lg font-extrabold tracking-[-0.04em]">
-              Storefront HQ
-            </span>
-            <span className="hidden text-[10px] font-semibold uppercase tracking-[0.15em] text-[#477a5b] sm:block">
-              Clarity for online sellers
-            </span>
-          </span>
+          <BrandSignature />
         </Link>
         <SiteNavigation />
       </div>
@@ -38,10 +29,14 @@ export function SiteFooter() {
     <footer className="border-t border-white/10 bg-[#10261f] text-[#f8f4e8]">
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-8 md:grid-cols-[1.2fr_1fr] lg:px-10">
         <div>
-          <p className="text-2xl font-extrabold tracking-tight">
-            Storefront HQ<span className="text-[#ff6b35]">.</span>
-          </p>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-[#b9c6b7]">
+          <Link
+            href="/"
+            aria-label="Storefront HQ home"
+            className="inline-flex rounded-xl"
+          >
+            <BrandSignature inverse />
+          </Link>
+          <p className="mt-5 max-w-xl text-sm leading-6 text-[#b9c6b7]">
             A clear next step for your online store. Public-storefront
             diagnosis, practical seller resources and a clean handoff to your
             implementer. Independent from Shopify and every ecommerce platform.

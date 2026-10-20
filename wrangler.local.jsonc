@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "storefront-hq-local-verification",
+  "compatibility_date": "2026-08-28",
+  // Local schema setup only. This placeholder matches vite.config.ts and is
+  // not a production database identifier. Always use the --local script.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "site-creator-d1",
+      "database_id": "00000000-0000-4000-8000-000000000000",
+      "migrations_dir": "drizzle",
+    },
+  ],
+}

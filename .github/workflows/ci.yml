@@ -25,6 +25,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run verify
+      - run: npm run db:migrate:local
+        env:
+          CI: "1"
+          WRANGLER_SEND_METRICS: "false"
       - run: npm run build
         env:
           CI: "1"

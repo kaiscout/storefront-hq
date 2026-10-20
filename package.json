@@ -9,11 +9,12 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
-    "start": "wrangler dev --config dist/server/wrangler.json",
+    "start": "wrangler dev --config dist/server/wrangler.json --local --ip 127.0.0.1 --persist-to .wrangler/state",
     "test": "node --import ./tests/deny-network.mjs --test tests/*.test.ts",
     "verify": "npm test && npm run lint",
     "lint": "oxlint",
     "format": "oxfmt",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.local.jsonc",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

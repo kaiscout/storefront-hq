@@ -25,10 +25,11 @@ Use Node.js 24 and npm; the lockfile records exact package resolutions.
 
 ```sh
 npm ci
+npm run db:migrate:local
 npm run dev -- --host 127.0.0.1
 ```
 
-The public interface can be reviewed without enabling payment, email, or discovery providers. Copy `.env.example` to an ignored local environment file only when configuring a specific integration. Operator routes require the configured database binding and operator identity. An unconfigured integration remains gated.
+The public interface can be reviewed without enabling payment, email, or discovery providers. Initialize the empty local D1 schema first so the Reviews page can query its tables. `db:migrate:local` uses the placeholder development binding in `wrangler.local.jsonc`, writes only to ignored `.wrangler/` state, and does not connect to a production database. Copy `.env.example` to an ignored local environment file only when configuring a specific integration. Operator routes require the configured database binding and operator identity. An unconfigured integration remains gated.
 
 ```sh
 npm run verify

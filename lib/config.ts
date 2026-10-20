@@ -114,8 +114,9 @@ export function productCheckoutConfig() {
 }
 
 export function checkoutUrlForProduct(productId: ProductId, leadId?: string) {
-  const base = productCheckoutConfig()[productId].checkoutUrl;
-  if (!base) return '';
+  const checkout = productCheckoutConfig()[productId];
+  if (!checkout.ready) return '';
+  const base = checkout.checkoutUrl;
   const url = new URL(base);
   if (leadId) url.searchParams.set('client_reference_id', leadId);
   return url.href;
@@ -127,6 +128,7 @@ export function publicConfig() {
   const businessAddress = process.env.PUBLIC_BUSINESS_ADDRESS?.trim() ?? '';
   const contactEmail = process.env.PUBLIC_CONTACT_EMAIL?.trim() ?? '';
   const calUrl = process.env.CAL_BOOKING_URL?.trim() ?? '';
+  const publicCalUrl = process.env.PUBLIC_CAL_BOOKING_URL?.trim() ?? '';
   const configuredCheckoutUrl = process.env.CHECKOUT_URL ?? '';
   const checkoutUrl = liveStripeCheckoutUrl(configuredCheckoutUrl);
   const customerPortalUrl = liveStripeCustomerPortalUrl(
@@ -162,6 +164,7 @@ export function publicConfig() {
     businessAddress,
     contactEmail,
     calUrl,
+    publicCalUrl: publicCalUrl.startsWith('https://cal.com/') ? publicCalUrl : '',
     checkoutUrl,
     customerPortalUrl,
     productCheckouts,

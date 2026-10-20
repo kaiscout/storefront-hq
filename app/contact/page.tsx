@@ -124,9 +124,9 @@ export default function ContactPage() {
               Open free triage <ArrowUpRight className="size-4" />
             </Link>
           </div>
-          {config.calUrl && (
+          {config.publicCalUrl && (
             <Link
-              href={config.calUrl}
+              href={config.publicCalUrl}
               className="inline-flex items-center gap-2 text-sm font-semibold underline underline-offset-4"
             >
               Prefer to talk? Check fit-call availability{' '}

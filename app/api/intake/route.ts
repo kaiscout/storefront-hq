@@ -140,7 +140,7 @@ export async function POST(request: Request) {
     ),
   });
   return Response.json(
-    { ok: true, id, bookingUrl: config.calUrl || null },
+    { ok: true, id, bookingUrl: config.publicCalUrl || null },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }

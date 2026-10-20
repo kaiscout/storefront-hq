@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  checkoutUrlForProduct,
   integrationState,
   productCheckoutConfig,
   publicConfig,
@@ -130,6 +131,41 @@ void test('product checkout readiness requires seller identity and a Stripe port
     process.env.STRIPE_CUSTOMER_PORTAL_URL =
       'https://billing.stripe.com/p/login/example_live';
     assert.equal(productCheckoutConfig()['seller-campaign-club'].ready, true);
+    assert.equal(
+      checkoutUrlForProduct('store-launch-kit'),
+      process.env.STORE_LAUNCH_KIT_CHECKOUT_URL,
+    );
+
+    delete process.env.PUBLIC_BUSINESS_ADDRESS;
+    assert.equal(productCheckoutConfig()['store-launch-kit'].ready, false);
+    assert.equal(checkoutUrlForProduct('store-launch-kit'), '');
+    assert.equal(checkoutUrlForProduct('seller-campaign-club'), '');
+
+    process.env.PUBLIC_BUSINESS_ADDRESS = '1 Example Street, London, W1A 1AA';
+    delete process.env.PUBLIC_BUSINESS_NAME;
+    assert.equal(checkoutUrlForProduct('store-launch-kit'), '');
+  } finally {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+void test('personal booking integration is private unless a public link is explicitly configured', () => {
+  const original = {
+    CAL_BOOKING_URL: process.env.CAL_BOOKING_URL,
+    PUBLIC_CAL_BOOKING_URL: process.env.PUBLIC_CAL_BOOKING_URL,
+  };
+  try {
+    process.env.CAL_BOOKING_URL = 'https://cal.com/example-person/private-call';
+    delete process.env.PUBLIC_CAL_BOOKING_URL;
+    assert.equal(publicConfig().calUrl, process.env.CAL_BOOKING_URL);
+    assert.equal(publicConfig().publicCalUrl, '');
+    process.env.PUBLIC_CAL_BOOKING_URL = 'https://cal.com/example-company/fit';
+    assert.equal(publicConfig().publicCalUrl, process.env.PUBLIC_CAL_BOOKING_URL);
+    process.env.PUBLIC_CAL_BOOKING_URL = 'javascript:alert(1)';
+    assert.equal(publicConfig().publicCalUrl, '');
   } finally {
     for (const [key, value] of Object.entries(original)) {
       if (value === undefined) delete process.env[key];

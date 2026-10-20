@@ -15,7 +15,6 @@ export function StorefrontIllustration() {
         viewBox="0 0 560 425"
         fill="none"
         className="block w-full"
-        role="img"
         aria-label="Illustration of a public product page examined with a magnifier, an evidence brief, and a retest after repair."
         focusable="false"
       >

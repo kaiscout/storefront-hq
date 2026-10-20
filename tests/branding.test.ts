@@ -34,7 +34,7 @@ void test('original vector artwork covers every catalogue product without remote
 void test('hero artwork is labelled as illustrative and retains the delivery qualification', () => {
   const art = source('components/storefront-illustration.tsx');
   assert.match(art, /Illustrated workflow/);
-  assert.match(art, /role="img"\s+aria-label="Illustration/);
+  assert.match(art, /<svg\s[^>]*aria-label="Illustration[^"\n]+"/);
   assert.match(
     art.replace(/\s+/g, ' '),
     /within 24 hours after confirmed payment and receipt of the required public URLs/,

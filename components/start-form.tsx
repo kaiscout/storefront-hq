@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 
@@ -27,7 +27,7 @@ export function StartForm({
   const [bookingUrl, setBookingUrl] = useState('');
   const [intakeId, setIntakeId] = useState('');
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     setState('submitting');

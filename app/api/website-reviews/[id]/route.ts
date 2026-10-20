@@ -14,7 +14,7 @@ export async function POST(
   const body = await request.formData();
   const status = body.get('status');
   if (
-    !['published', 'hidden'].includes(String(status)) ||
+    (status !== 'published' && status !== 'hidden') ||
     (status === 'published' && body.get('checked') !== 'on')
   )
     return Response.json(
@@ -27,7 +27,7 @@ export async function POST(
   const { id } = await params;
   if (!/^[a-f0-9-]{36}$/i.test(id))
     return Response.json({ error: 'Invalid reference' }, { status: 400 });
-  const ok = await moderateWebsiteReview(id, status as 'published' | 'hidden');
+  const ok = await moderateWebsiteReview(id, status);
   if (!ok)
     return Response.json(
       { error: 'No review with publication permission was found.' },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type SubmitEvent } from 'react';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -30,11 +30,14 @@ export function WebsiteForm({
   const sending = useRef(false);
   const isReview = kind === 'review';
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (sending.current) return;
     const data = new FormData(event.currentTarget);
-    const value = (key: string) => String(data.get(key) || '');
+    const value = (key: string) => {
+      const entry = data.get(key);
+      return typeof entry === 'string' ? entry : '';
+    };
     if (isReview && !rating) {
       setError('Please choose a rating from 1 to 5.');
       setState('error');
@@ -96,9 +99,9 @@ export function WebsiteForm({
 
   if (state === 'success')
     return (
-      <div
+      <section
         className="form-card border-[#477a5b]/30 bg-[#edf3e6]"
-        role="status"
+        aria-label="Submission result"
         aria-live="polite"
       >
         <CheckCircle2 className="size-10 text-[#477a5b]" />
@@ -133,7 +136,7 @@ export function WebsiteForm({
           {isReview ? 'Explore the products' : 'Try free triage while you wait'}{' '}
           <ArrowRight className="size-4" />
         </Link>
-      </div>
+      </section>
     );
 
   return (

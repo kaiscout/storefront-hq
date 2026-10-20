@@ -1,5 +1,7 @@
 # Live opportunity sheet — 28 August 2026
 
+Historical research retained for provenance. These observations are not a current prospect list or the current product catalogue. See the [current runbook](../operations/runbook.md).
+
 These requests were source-checked on 28 August 2026 and may close at any time. They are proposal opportunities, not email prospects. Keep every pre-contract message, meeting, and payment inside the named marketplace.
 
 ## First proposal

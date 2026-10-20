@@ -1,5 +1,7 @@
 # Storefront HQ product operating plan
 
+Return to the [project overview](../../README.md). Commands and source paths in this guide are relative to the repository root.
+
 The current goal is to generate trustworthy first revenue with four bounded products instead of relying on one high-ticket offer. A sale is a target, not a guarantee.
 
 ## Canonical catalogue
@@ -11,7 +13,7 @@ The current goal is to generate trustworthy first revenue with four bounded prod
 | Store Emergency Check | £99 one-time | One public-storefront problem; initial diagnosis within 24 hours and one retest |
 | Seller Campaign Club | £19/month | One practical campaign pack each month; cancel through Stripe, no minimum term |
 
-[`lib/products.ts`](./lib/products.ts) is canonical. Never change names, prices, billing terms or deliverables without Deniz's approval. The former £895 Storefront QA Sprint is retired for new customers; honour only safely verified historical obligations under their original terms.
+[`lib/products.ts`](../../lib/products.ts) is canonical. Never change names, prices, billing terms or deliverables without Deniz's approval. The former £895 Storefront QA Sprint is retired for new customers; honour only safely verified historical obligations under their original terms.
 
 ## Launch gate
 

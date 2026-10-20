@@ -38,7 +38,7 @@ void test('photo assets are local, responsive and small; illustrative status is 
         import.meta.url,
       );
       const bytes = readFileSync(asset);
-      assert.equal(new TextDecoder().decode(bytes.slice(8, 12)), 'WEBP');
+      assert.equal(new TextDecoder().decode(bytes.subarray(8, 12)), 'WEBP');
       assert.ok(
         statSync(asset).size < 250_000,
         `${name}-${width} must stay below 250KB`,

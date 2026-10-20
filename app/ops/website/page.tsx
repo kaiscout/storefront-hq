@@ -17,13 +17,14 @@ export default async function WebsiteInbox() {
           Only the allowlisted operator can read submissions or moderate
           reviews.
         </p>
-        <a
+        <Link
           href="/signin-with-chatgpt?return_to=/ops/website"
           target="_top"
+          prefetch={false}
           className="button-primary mt-6"
         >
           Sign in with ChatGPT
-        </a>
+        </Link>
       </main>
     );
   const rows = await listWebsiteSubmissions();

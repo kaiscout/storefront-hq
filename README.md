@@ -1,6 +1,56 @@
 # Storefront HQ
 
-Storefront HQ sells a four-product ladder for online sellers:
+Full-stack commerce and service-operations software for digital downloads, focused storefront services, and campaign membership. The implementation connects product configuration, signed payment events, durable orders, protected fulfilment, and operator-controlled communication.
+
+## Review the engineering
+
+| Area | Start here |
+| --- | --- |
+| Typed product catalogue and checkout gates | [lib/products.ts](lib/products.ts), [lib/config.ts](lib/config.ts) |
+| Signed events and exact payment classification | [Stripe webhook](app/api/webhooks/stripe/route.ts), [lib/payments.ts](lib/payments.ts) |
+| Protected digital fulfilment | [lib/digital-products.ts](lib/digital-products.ts), [download route](app/api/download/[file]/route.ts) |
+| Persistence and schema evolution | [db/schema.ts](db/schema.ts), [drizzle/](drizzle/) |
+| Consent-aware intake and operations | [lib/website-forms.ts](lib/website-forms.ts), [lib/pipeline.ts](lib/pipeline.ts) |
+| Regression evidence | [tests/](tests/), [synthetic demonstration provenance](public/demo-evidence/verification.json) |
+
+The stack is React, TypeScript, Vinext/Vite, Cloudflare Workers and D1, Drizzle, Tailwind CSS, and signed provider webhooks. See the [architecture](docs/architecture.md) for request boundaries and the [documentation index](docs/README.md) for operating references.
+
+![Synthetic storefront used in the QA evidence demonstration](public/demo-evidence/after-desktop.png)
+
+The screenshot is a controlled demonstration, not a client result or a measured conversion improvement. Integration adapters and local tests do not by themselves establish that a live provider account is configured.
+
+## Run locally
+
+Use Node.js 24 and npm; the lockfile records exact package resolutions.
+
+```sh
+npm ci
+npm run dev -- --host 127.0.0.1
+```
+
+The public interface can be reviewed without enabling payment, email, or discovery providers. Copy `.env.example` to an ignored local environment file only when configuring a specific integration. Operator routes require the configured database binding and operator identity. An unconfigured integration remains gated.
+
+```sh
+npm run verify
+npm run build
+```
+
+Tests preload an offline network guard and inject synthetic provider responses. They must not charge a card, send a message, query a live customer, or consume discovery credits. A build creates local deployment output; publishing is a separate operation.
+
+## Repository guide
+
+- `app/` — public pages, operator screens, HTTP handlers, and webhook boundaries.
+- `components/` — branded product interface and shared accessible controls.
+- `lib/` — catalogue, configuration, payment classification, fulfilment, and operations logic.
+- `db/` and `drizzle/` — typed persistence and versioned migrations.
+- `automations/` — the separately configured Gmail bridge.
+- `tests/` and `scripts/` — deterministic behavior checks and local preview checks.
+- `public/` and `design/` — product assets, synthetic evidence, and visual provenance.
+- `docs/` — architecture, operating instructions, and dated historical research.
+
+## Product scope
+
+The current catalogue serves online sellers through four bounded products:
 
 - **Store Launch Kit — £39 one-time:** seven editable launch resources, available after confirmed payment.
 - **Product Page Rescue — £79 one-time:** a focused rewrite and public review of one live product page, delivered within two business days.
@@ -36,12 +86,6 @@ The canonical catalogue lives in [`lib/products.ts`](./lib/products.ts). New-cus
 - Unlocking a download or starting work from an unverified payment signal
 - Firecrawl spending for routine monitoring, discovery or diagnostics
 
-See [RUNBOOK.md](./RUNBOOK.md) for the operating plan and [automations/google-apps-script/SETUP.md](./automations/google-apps-script/SETUP.md) for the dedicated Gmail bridge.
+See the [operating runbook](docs/operations/runbook.md) for the operating plan and [Gmail bridge setup](automations/google-apps-script/SETUP.md) for the dedicated integration. Historical research is separated from current operating instructions in [docs/history/](docs/history/).
 
-## Local checks
-
-```bash
-npm test
-npm run lint
-npm run build
-```
+Commercial prices and deliverables are controlled by the catalogue, not by this repository cleanup. Production account configuration, payment settlement, external delivery, and business outcomes require separate operational verification.

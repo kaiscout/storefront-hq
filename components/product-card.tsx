@@ -16,7 +16,7 @@ export function ProductCard({
   return (
     <article
       className={cn(
-        'group relative flex h-full flex-col rounded-[1.75rem] border p-6 sm:p-7',
+        'product-surface depth-card group relative flex h-full flex-col rounded-[1.75rem] border p-6 sm:p-7',
         featured
           ? 'border-[#10261f] bg-[#10261f] text-[#f8f4e8] shadow-xl shadow-[#10261f]/10'
           : 'border-[#10261f]/15 bg-[#fffefb] shadow-sm',

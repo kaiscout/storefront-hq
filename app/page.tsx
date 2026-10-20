@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ProductCard } from '@/components/product-card';
 import { SiteFooter, SiteHeader } from '@/components/site-shell';
 import { StorefrontIllustration } from '@/components/storefront-illustration';
+import { StorefrontSlideshow } from '@/components/storefront-slideshow';
 import { products } from '@/lib/products';
 
 const homepageProducts = [
@@ -17,7 +18,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <SiteHeader />
-      <section className="relative border-b border-[#10261f]/10 bg-[#f0f1e8]">
+      <section className="home-hero relative border-b border-[#10261f]/10 bg-[#f0f1e8]">
         <div
           className="qa-grid absolute inset-0 opacity-15"
           aria-hidden="true"
@@ -65,7 +66,13 @@ export default function Home() {
             </p>
           </div>
 
-          <StorefrontIllustration />
+          <div className="min-w-0">
+            <StorefrontSlideshow />
+            <p className="mt-5 text-center text-xs leading-5 text-muted-foreground">
+              Initial diagnosis within 24 hours after confirmed payment and
+              receipt of the required public URLs.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -79,7 +86,7 @@ export default function Home() {
               Triage it in three questions.
             </h2>
           </div>
-          <div className="rounded-[1.75rem] border border-[#10261f]/15 bg-[#fffefb] p-6 sm:p-7">
+          <div className="gloss-panel rounded-[1.75rem] border border-[#10261f]/15 bg-[#fffefb] p-6 sm:p-7">
             <div className="flex gap-4">
               <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#10261f] text-white">
                 <MousePointerClick className="size-5" />
@@ -146,41 +153,47 @@ export default function Home() {
               developer, agency or in-house owner keeps control of the repair.
             </p>
           </div>
-          <div className="grid gap-px overflow-hidden rounded-[1.75rem] border-2 border-[#10261f] bg-[#10261f] sm:grid-cols-2">
-            {[
-              [
-                'Observed',
-                'Exact URL, time, environment and reproduction result.',
-              ],
-              [
-                'Why it matters',
-                'Likely customer impact, with uncertainty stated.',
-              ],
-              [
-                'First repair',
-                'Prioritised direction for the person implementing the fix.',
-              ],
-              [
-                'Done means',
-                'A public acceptance check and one retest after repair.',
-              ],
-            ].map(([title, description], index) => (
-              <article key={title} className="bg-[#f8f4e8] p-6 sm:p-8">
-                <span className="font-mono text-xs font-black text-[#477a5b]">
-                  0{index + 1}
-                </span>
-                <h3 className="mt-3 text-xl font-black">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {description}
-                </p>
-              </article>
-            ))}
+          <div className="min-w-0">
+            <StorefrontIllustration />
+            <div className="mt-6 grid gap-5 sm:grid-cols-2">
+              {[
+                [
+                  'Observed',
+                  'Exact URL, time, environment and reproduction result.',
+                ],
+                [
+                  'Why it matters',
+                  'Likely customer impact, with uncertainty stated.',
+                ],
+                [
+                  'First repair',
+                  'Prioritised direction for the person implementing the fix.',
+                ],
+                [
+                  'Done means',
+                  'A public acceptance check and one retest after repair.',
+                ],
+              ].map(([title, description], index) => (
+                <article
+                  key={title}
+                  className="border-t border-[#10261f]/20 pt-4"
+                >
+                  <span className="font-mono text-xs font-black text-[#477a5b]">
+                    0{index + 1}
+                  </span>
+                  <h3 className="mt-3 text-xl font-black">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {description}
+                  </p>
+                </article>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
-        <div className="rounded-[2rem] border border-[#10261f]/15 bg-[#eaf2dc] p-7 sm:p-10 lg:flex lg:items-center lg:justify-between lg:gap-10">
+        <div className="gloss-panel rounded-[2rem] border border-[#10261f]/15 bg-[#eaf2dc] p-7 sm:p-10 lg:flex lg:items-center lg:justify-between lg:gap-10">
           <div className="max-w-3xl">
             <p className="font-mono text-xs font-black uppercase tracking-[.18em] text-[#477a5b]">
               Agencies and implementers
@@ -207,7 +220,7 @@ export default function Home() {
         <div className="grid gap-6 md:grid-cols-2">
           <Link
             href="/contact"
-            className="rounded-3xl border border-[#10261f]/15 bg-white/65 p-7 transition-colors hover:bg-white"
+            className="gloss-panel depth-card rounded-3xl border border-[#10261f]/15 bg-white/65 p-7 transition-colors hover:bg-white"
           >
             <p className="eyebrow">Talk to us</p>
             <h2 className="mt-3 text-2xl font-bold tracking-tight">
@@ -223,7 +236,7 @@ export default function Home() {
           </Link>
           <Link
             href="/reviews"
-            className="rounded-3xl border border-[#10261f]/15 bg-white/65 p-7 transition-colors hover:bg-white"
+            className="gloss-panel depth-card rounded-3xl border border-[#10261f]/15 bg-white/65 p-7 transition-colors hover:bg-white"
           >
             <p className="eyebrow">Real feedback</p>
             <h2 className="mt-3 text-2xl font-bold tracking-tight">

@@ -7,7 +7,7 @@ import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
 export const metadata = pageMetadata(
-  'Product terms',
+  'Terms & conditions',
   'Storefront HQ seller identity, product prices, delivery scope and cancellation terms.',
   '/terms',
 );
@@ -23,8 +23,12 @@ export default function TermsPage() {
           Storefront HQ · Product terms · Last updated 14 October 2026
         </p>
         <h1 className="mt-4 text-5xl font-black tracking-[-0.05em]">
-          Clear products, prices and responsibilities.
+          Terms & conditions
         </h1>
+        <p className="mt-5 text-lg leading-8 text-muted-foreground">
+          Clear products, prices and responsibilities. These are the product
+          terms for Storefront HQ.
+        </p>
         {!identityReady ? (
           <div className="mt-7 rounded-2xl border border-[#ff6b35]/40 bg-[#ff6b35]/10 p-5 text-sm leading-6">
             <strong>Checkout gate:</strong> online checkout stays unavailable

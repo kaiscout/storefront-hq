@@ -1,0 +1,31 @@
+{
+  "created": "2026-10-20",
+  "mode": "built-in image_gen",
+  "purpose": "Original illustrative store scenes for homepage; not client stores or evidence.",
+  "assets": [
+    {
+      "name": "homewares",
+      "prompt": "Use case: photorealistic-natural. Asset type: homepage slideshow photograph for Storefront HQ. Primary request: An unbranded modern laptop displaying a refined fictional ceramics and homewares online shop: large cream ceramic vase product photograph, small coherent product tiles, simple dark green shop navigation. Laptop on pale oak desk next to a real handmade ceramic mug. Sunlit quiet home studio. Style: premium editorial photography, genuinely photorealistic materials, believable device proportions and screen perspective, natural subtle reflections, oak grain and tactile fabric, not a 3D render. Composition: landscape 3:2, medium close-up at a slight three-quarter angle, screen is clearly visible and centered, device fills most of frame with breathing room; suitable for crop on mobile. Lighting: soft warm window light, inviting and calm. Palette: forest green, warm cream, sage, natural wood. UI text minimal, only generic labels such as \"Shop\" or \"Collection\", no invented testimonial, sales figures or promises. Constraints: fictional store concept only; no real brand names, platform logos, watermarks, people, extra devices, fake analytics, or large promotional text over the photo. Produce one standalone full-frame photograph, not a collage.",
+      "outputs": [
+        "public/images/stores/homewares-640.webp",
+        "public/images/stores/homewares-1200.webp"
+      ]
+    },
+    {
+      "name": "apparel",
+      "prompt": "Use case: photorealistic-natural. Asset type: homepage slideshow photograph for Storefront HQ. Primary request: An unbranded tablet on a slim stand displaying a tasteful fictional independent clothing online shop: editorial photograph of a cream linen shirt on a hanger, a simple row of product thumbnails and restrained green shopping controls. Tablet on a soft cream studio table with naturally folded sage linen nearby. No people. Style: premium editorial photography, genuinely photorealistic materials, believable device proportions and screen perspective, natural subtle reflections, oak grain and tactile fabric, not a 3D render. Composition: landscape 3:2, medium close-up at a slight three-quarter angle, screen is clearly visible and centered, device fills most of frame with breathing room; suitable for crop on mobile. Lighting: soft warm window light, inviting and calm. Palette: forest green, warm cream, sage, natural wood. UI text minimal, only generic labels such as \"Shop\" or \"Collection\", no invented testimonial, sales figures or promises. Constraints: fictional store concept only; no real brand names, platform logos, watermarks, people, extra devices, fake analytics, or large promotional text over the photo. Produce one standalone full-frame photograph, not a collage.",
+      "outputs": [
+        "public/images/stores/apparel-640.webp",
+        "public/images/stores/apparel-1200.webp"
+      ]
+    },
+    {
+      "name": "accessories",
+      "prompt": "Use case: photorealistic-natural. Asset type: homepage slideshow photograph for Storefront HQ. Primary request: An unbranded laptop displaying a tasteful fictional leather bags and everyday accessories online shop: large photograph of a tan tote bag, smaller product grid, generous cream whitespace and dark green shopping controls. Laptop on a limestone table next to a neatly closed notebook in a warm creative studio. No people. Style: premium editorial photography, genuinely photorealistic materials, believable device proportions and screen perspective, natural subtle reflections, oak grain and tactile fabric, not a 3D render. Composition: landscape 3:2, medium close-up at a slight three-quarter angle, screen is clearly visible and centered, device fills most of frame with breathing room; suitable for crop on mobile. Lighting: soft warm window light, inviting and calm. Palette: forest green, warm cream, sage, natural wood. UI text minimal, only generic labels such as \"Shop\" or \"Collection\", no invented testimonial, sales figures or promises. Constraints: fictional store concept only; no real brand names, platform logos, watermarks, people, extra devices, fake analytics, or large promotional text over the photo. Produce one standalone full-frame photograph, not a collage.",
+      "outputs": [
+        "public/images/stores/accessories-640.webp",
+        "public/images/stores/accessories-1200.webp"
+      ]
+    }
+  ]
+}

@@ -68,7 +68,7 @@ export function SiteFooter() {
             Privacy
           </Link>
           <Link href="/terms" className="underline-offset-4 hover:underline">
-            Terms
+            Terms & conditions
           </Link>
           <Link href="/reviews" className="underline-offset-4 hover:underline">
             Reviews & feedback

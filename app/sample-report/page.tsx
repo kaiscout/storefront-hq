@@ -173,7 +173,13 @@ export default function SampleReportPage() {
                 result. We provide public-storefront diagnosis and repair
                 guidance; implementation, merchant-admin access and revenue
                 guarantees are excluded.{' '}
-                <Link href="/terms" className="underline">
+                <Link
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Terms & Conditions (opens in a new tab)"
+                  className="underline"
+                >
                   Product terms apply.
                 </Link>
               </p>

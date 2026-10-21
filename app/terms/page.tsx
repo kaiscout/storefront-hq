@@ -4,178 +4,235 @@ import { SiteFooter, SiteHeader } from '@/components/site-shell';
 import { publicConfig } from '@/lib/config';
 import { products, productPrice } from '@/lib/products';
 import { pageMetadata } from '@/lib/metadata';
+import { termsSections, termsUpdated } from '@/lib/terms';
 
 export const dynamic = 'force-dynamic';
 export const metadata = pageMetadata(
-  'Terms & conditions',
-  'Storefront HQ seller identity, product prices, delivery scope and cancellation terms.',
+  'Terms & Conditions',
+  'Storefront HQ product scope, payment, delivery, cancellation, subscription and seller contact terms.',
   '/terms',
 );
 
 export default function TermsPage() {
   const config = publicConfig();
-  const identityReady = Boolean(config.businessName && config.businessAddress);
+  // Terms-only disclosures do not activate checkout or repeat a personal
+  // address in the homepage footer. Exact values require owner approval.
+  const sellerName =
+    process.env.PUBLIC_TERMS_SELLER_NAME?.trim() || config.businessName;
+  const sellerAddress =
+    process.env.PUBLIC_TERMS_SELLER_ADDRESS?.trim() || config.businessAddress;
+  const identityReady = Boolean(sellerName && sellerAddress);
+  const checkoutAvailable = Object.values(config.productCheckouts).some(
+    (checkout) => checkout.ready,
+  );
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <SiteHeader />
-      <article className="mx-auto max-w-4xl px-5 py-12 sm:px-8 sm:py-20">
-        <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-[#477a5b]">
-          Storefront HQ · Product terms · Last updated 14 October 2026
-        </p>
-        <h1 className="mt-4 text-5xl font-black tracking-[-0.05em]">
-          Terms & conditions
-        </h1>
-        <p className="mt-5 text-lg leading-8 text-muted-foreground">
-          Clear products, prices and responsibilities. These are the product
-          terms for Storefront HQ.
-        </p>
-        {!identityReady ? (
-          <div className="mt-7 rounded-2xl border border-[#ff6b35]/40 bg-[#ff6b35]/10 p-5 text-sm leading-6">
-            <strong>Checkout gate:</strong> online checkout stays unavailable
-            until the seller’s legal business name and trading address are
-            published here.
-          </div>
+      <div className="print:hidden">
+        <SiteHeader />
+      </div>
+      <article className="mx-auto max-w-4xl px-5 py-12 sm:px-8 sm:py-20 print:max-w-none print:px-0 print:py-0">
+        <header className="border-b border-[#10261f]/20 pb-8">
+          <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-[#477a5b]">
+            Storefront HQ · Product terms
+          </p>
+          <h1 className="mt-4 text-4xl font-black tracking-[-0.04em] sm:text-5xl">
+            Terms & Conditions
+          </h1>
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">
+            Last updated {termsUpdated}. English-language version.
+          </p>
+          <p className="mt-5 text-base leading-8 text-foreground/80">
+            Please read these terms before purchasing. They explain the product
+            scope, payment and delivery process, subscription cancellation and
+            your responsibilities. Mandatory legal rights remain protected.
+          </p>
+          <p className="mt-4 text-base leading-7">
+            <a
+              href="#seller-and-contact"
+              className="font-bold underline underline-offset-4"
+            >
+              Seller and contact details
+            </a>{' '}
+            are in the clearly labelled final section. Use the contents below to
+            go directly to any section, or your browser’s Print function to save
+            a copy.
+          </p>
+        </header>
+
+        {!checkoutAvailable ? (
+          <aside
+            aria-label="Current checkout availability"
+            className="mt-7 rounded-xl border border-[#477a5b]/30 bg-[#e9f4dc]/50 p-5 text-base leading-7"
+          >
+            <strong>Purchases are currently paused.</strong> Product enquiries
+            remain available. An enquiry is not an order, and publishing or
+            viewing these terms does not activate checkout.
+          </aside>
         ) : null}
-        <div className="prose-qa mt-10 space-y-9 leading-7 text-muted-foreground">
-          <section>
-            <h2>Seller and contact</h2>
+
+        <nav
+          aria-label="Terms contents"
+          className="mt-8 rounded-xl border border-[#10261f]/15 bg-white/50 p-5 sm:p-7"
+        >
+          <h2 className="text-lg font-bold">Contents</h2>
+          <ol className="mt-4 grid gap-x-8 gap-y-3 text-sm leading-6 sm:grid-cols-2">
+            <li>
+              <a href="#catalogue" className="underline underline-offset-4">
+                1. Products and prices
+              </a>
+            </li>
+            {termsSections.map((section, index) => (
+              <li key={section.id}>
+                <a
+                  href={'#' + section.id}
+                  className="underline underline-offset-4"
+                >
+                  {index + 2}. {section.title}
+                </a>
+              </li>
+            ))}
+            <li>
+              <a
+                href="#seller-and-contact"
+                className="font-bold underline underline-offset-4"
+              >
+                {termsSections.length + 2}. Seller and contact
+              </a>
+            </li>
+          </ol>
+        </nav>
+
+        <div className="mt-12 space-y-12 text-base leading-8 text-foreground/80 [&_h2]:mb-5 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:tracking-tight [&_h2]:text-foreground [&_p+p]:mt-5 [&_section]:scroll-mt-28 print:space-y-8">
+          <section id="catalogue" aria-labelledby="catalogue-heading">
+            <h2 id="catalogue-heading">1. Products and prices</h2>
+            <div className="space-y-5">
+              {products.map((product) => (
+                <div
+                  key={product.id}
+                  className="border-l-2 border-[#477a5b]/40 pl-5"
+                >
+                  <h3 className="font-bold text-foreground">
+                    {product.name} — {productPrice(product)} GBP
+                    {product.billing === 'one-time' ? ' one-time' : ''}
+                  </h3>
+                  <p>
+                    {product.description} {product.turnaround}.
+                  </p>
+                  {product.id === 'store-emergency-check' ? (
+                    <p>Includes one public retest after repair.</p>
+                  ) : null}
+                  {product.id === 'seller-campaign-club' ? (
+                    <p>
+                      A new practical campaign pack each month. Cancel through
+                      Stripe; no minimum term.
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
             <p>
-              {identityReady ? (
-                <>
-                  {config.businessName}, trading as Storefront HQ, at{' '}
-                  {config.businessAddress}.
-                </>
-              ) : (
-                <>
-                  The seller identity and trading address must be completed
-                  before checkout is activated.
-                </>
-              )}{' '}
-              Questions, cancellation notices and complaints can be sent to{' '}
-              <a href={`mailto:${config.contactEmail}`}>
+              These are the current products for new purchases. Read the
+              relevant product page for its stated deliverables. Earlier
+              verified purchases remain subject to their accepted scope and
+              terms; they are not converted into a different product by this
+              page.
+            </p>
+          </section>
+
+          {termsSections.map((section, index) => (
+            <section
+              key={section.id}
+              id={section.id}
+              aria-labelledby={section.id + '-heading'}
+            >
+              <h2 id={section.id + '-heading'}>
+                {index + 2}. {section.title}
+              </h2>
+              {section.paragraphs.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+              {section.id === 'subscription' && config.customerPortalUrl ? (
+                <p>
+                  <a
+                    href={config.customerPortalUrl}
+                    className="font-bold underline underline-offset-4"
+                  >
+                    Manage or cancel Seller Campaign Club through Stripe
+                  </a>
+                  .
+                </p>
+              ) : null}
+              {section.id === 'your-information' ? (
+                <p>
+                  Read the{' '}
+                  <Link
+                    href="/privacy"
+                    className="font-bold underline underline-offset-4"
+                  >
+                    privacy notice
+                  </Link>{' '}
+                  for further information.
+                </p>
+              ) : null}
+            </section>
+          ))}
+
+          <section
+            id="seller-and-contact"
+            aria-labelledby="seller-heading"
+            className="rounded-xl border border-[#10261f]/20 bg-white/60 p-5 sm:p-7"
+          >
+            <h2 id="seller-heading">
+              {termsSections.length + 2}. Seller and contact
+            </h2>
+            {identityReady ? (
+              <dl className="space-y-4">
+                <div>
+                  <dt className="font-bold text-foreground">Legal seller</dt>
+                  <dd>{sellerName}, trading as Storefront HQ.</dd>
+                </div>
+                <div>
+                  <dt className="font-bold text-foreground">Postal address</dt>
+                  <dd className="whitespace-pre-line">{sellerAddress}</dd>
+                </div>
+              </dl>
+            ) : (
+              <p>
+                The verified seller name and postal address have not yet been
+                published. Checkout remains unavailable while seller disclosure
+                and purchase-readiness checks are completed.
+              </p>
+            )}
+            <p className="mt-5">
+              For product questions, cancellation notices and complaints, email{' '}
+              <a
+                href={'mailto:' + config.contactEmail}
+                className="font-bold underline underline-offset-4"
+              >
                 {config.contactEmail}
+              </a>
+              . You can also use the{' '}
+              <Link
+                href="/contact"
+                className="font-bold underline underline-offset-4"
+              >
+                Contact page
+              </Link>
+              . Do not include card details, passwords or private customer
+              records.
+            </p>
+            <p>
+              <a href="#catalogue" className="underline underline-offset-4">
+                Return to products and prices
               </a>
               .
             </p>
           </section>
-          <section>
-            <h2>Products and prices</h2>
-            <div className="space-y-3">
-              {products.map((product) => (
-                <p key={product.id}>
-                  <strong>
-                    {product.name} — {productPrice(product)}.
-                  </strong>{' '}
-                  {product.description} {product.turnaround}.
-                </p>
-              ))}
-            </div>
-            <p>
-              Prices are shown in GBP. The Stripe checkout page states the
-              amount charged and, for Seller Campaign Club, that payment recurs
-              monthly until cancelled.
-            </p>
-          </section>
-          <section>
-            <h2>Digital products</h2>
-            <p>
-              The Store Launch Kit and Campaign Club packs are supplied as
-              English-language Markdown and CSV files intended for ordinary text
-              editors and spreadsheet apps. Digital files are for the buyer’s
-              own business use. They may be adapted internally but not resold,
-              republished, shared as a template library or represented as
-              someone else’s work.
-            </p>
-            <p>
-              Where UK cancellation law applies, digital supply will not begin
-              during the normal cancellation period unless the buyer expressly
-              asks for immediate access and acknowledges the effect on the right
-              to cancel. Statutory rights for faulty or misdescribed digital
-              content are not affected.
-            </p>
-          </section>
-          <section>
-            <h2>Focused services</h2>
-            <p>
-              Product Page Rescue covers one public product page. Store
-              Emergency Check covers one reported public-storefront issue or
-              journey and one public retest after the customer’s repair. The
-              customer supplies accurate public URLs and context. Storefront HQ
-              supplies the described copy or diagnosis; the customer remains
-              responsible for implementation, platform configuration and
-              business decisions.
-            </p>
-            <p>
-              If a consumer asks for service work to start during a statutory
-              cancellation period, we will obtain the required express request
-              before starting. If cancellation remains available after work has
-              begun, the law may allow a proportionate charge for work supplied
-              up to cancellation.
-            </p>
-          </section>
-          <section>
-            <h2>Seller Campaign Club</h2>
-            <p>
-              The subscription is £19 per month until cancelled. It provides the
-              current member campaign pack and subsequent monthly packs while
-              the subscription remains active. Cancellation stops future
-              renewal; it does not remove files already lawfully supplied.
-              Cancellation instructions are available{' '}
-              {config.customerPortalUrl ? (
-                <>
-                  through the{' '}
-                  <a href={config.customerPortalUrl}>Stripe customer portal</a>
-                </>
-              ) : (
-                <>through the Stripe customer portal</>
-              )}{' '}
-              or by emailing Storefront HQ. We do not impose a minimum term.
-            </p>
-          </section>
-          <section>
-            <h2>Refunds, cancellations and problems</h2>
-            <p>
-              Email Storefront HQ with the purchase email, product and Stripe
-              receipt reference. We will apply mandatory consumer rights and any
-              cancellation right that remains available. Nothing in these terms
-              excludes rights that cannot lawfully be excluded. If work or
-              content is materially different from the description, tell us
-              promptly so we can investigate and provide the appropriate remedy.
-            </p>
-          </section>
-          <section>
-            <h2>Limits</h2>
-            <p>
-              Products provide practical templates, copy, public-storefront
-              observations and implementation guidance. They are not legal, tax,
-              accounting, security or accessibility-conformance advice.
-              Storefront HQ does not promise a particular revenue, conversion or
-              ranking result and does not require store-admin access, passwords
-              or customer records.
-            </p>
-          </section>
-          <section>
-            <h2>Contract copy</h2>
-            <p>
-              Save or print this page and the product page before purchase.
-              Stripe supplies the payment receipt. Storefront HQ supplies the
-              digital files or service onboarding record after confirmed
-              payment.
-            </p>
-          </section>
         </div>
-        <p className="mt-10 text-sm text-muted-foreground">
-          See also the{' '}
-          <Link
-            href="/privacy"
-            className="font-bold underline underline-offset-4"
-          >
-            privacy notice
-          </Link>
-          .
-        </p>
       </article>
-      <SiteFooter />
+      <div className="print:hidden">
+        <SiteFooter />
+      </div>
     </main>
   );
 }

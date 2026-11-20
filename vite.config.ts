@@ -1,37 +1,33 @@
-import { sites } from '@openai/sites-vite-plugin';
 import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
 import { defineConfig } from 'vite';
-import hostingConfig from './.openai/hosting.json';
 
-const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
-  '00000000-0000-4000-8000-000000000000';
-
-const { d1, r2 } = hostingConfig;
-
-// macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
-const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
-
-const localBindingConfig = {
+// Production Worker settings for Storefront HQ's own Cloudflare account.
+// The D1 id must match wrangler.d1.jsonc so local dev and local migrations
+// share one database. Secrets are never stored here: set them with
+// `npx wrangler secret put NAME` (see docs/operations/cloudflare-hosting.md).
+const workerConfig = {
+  name: 'storefront-hq',
   main: 'vinext/server/fetch-handler',
+  compatibility_date: '2026-08-28',
   compatibility_flags: ['nodejs_compat'],
-  d1_databases: d1
-    ? [
-        {
-          binding: d1,
-          database_name: 'site-creator-d1',
-          database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
-        },
-      ]
-    : [],
-  r2_buckets: r2
-    ? [
-        {
-          binding: r2,
-          bucket_name: 'site-creator-r2',
-        },
-      ]
-    : [],
+  // Pre-cutover testing uses the workers.dev URL. Operator routes stay locked
+  // there because they require a signed Cloudflare Access token.
+  workers_dev: true,
+  preview_urls: false,
+  observability: { enabled: true },
+  vars: {
+    PUBLIC_SITE_URL: 'https://storefronthq.co.uk',
+    PUBLIC_CONTACT_EMAIL: 'front.storecheckqa@gmail.com',
+  },
+  d1_databases: [
+    {
+      binding: 'DB',
+      database_name: 'storefront-hq',
+      database_id: 'a44231ab-57a6-487a-9062-9520dab85d7e',
+      migrations_dir: 'drizzle',
+    },
+  ],
 };
 
 export default defineConfig(async () => {
@@ -46,15 +42,11 @@ export default defineConfig(async () => {
 
   return {
     css: { postcss: { plugins: [tailwindcss()] } },
-    server: isCodexSeatbeltSandbox
-      ? { watch: { useFsEvents: false, usePolling: true } }
-      : undefined,
     plugins: [
       vinext(),
-      sites(),
       cloudflare({
         viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
-        config: localBindingConfig,
+        config: workerConfig,
       }),
     ],
   };

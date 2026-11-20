@@ -35,7 +35,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  if (!isOperatorRequest(request))
+  if (!(await isOperatorRequest(request)))
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   const parsed = qualifySchema.safeParse(
     await request.json().catch(() => null),

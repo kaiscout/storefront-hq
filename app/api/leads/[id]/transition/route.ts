@@ -16,7 +16,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  if (!isOperatorRequest(request) && !hasAutomationSecret(request)) {
+  if (!(await isOperatorRequest(request)) && !hasAutomationSecret(request)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const parsed = transitionSchema.safeParse(

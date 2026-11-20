@@ -19,7 +19,7 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  if (!isOperatorRequest(request))
+  if (!(await isOperatorRequest(request)))
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await context.params;

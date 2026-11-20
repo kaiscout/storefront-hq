@@ -5,7 +5,7 @@ export async function DELETE(
   request: Request,
   context: { params: Promise<{ id: string; findingId: string }> },
 ) {
-  if (!isOperatorRequest(request))
+  if (!(await isOperatorRequest(request)))
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   const { id, findingId } = await context.params;
   const lead = await getLead(id);

@@ -7,7 +7,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!isOperatorRequest(request))
+  if (!(await isOperatorRequest(request)))
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   if (!isSameOriginFormRequest(request, publicConfig().siteUrl))
     return Response.json({ error: 'Invalid origin' }, { status: 403 });

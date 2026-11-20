@@ -15,16 +15,12 @@ export default async function WebsiteInbox() {
         <h1 className="text-3xl font-bold">Private website inbox</h1>
         <p className="mt-4">
           Only the allowlisted operator can read submissions or moderate
-          reviews.
+          reviews. Sign in through Cloudflare Access with that email.
         </p>
-        <Link
-          href="/signin-with-chatgpt?return_to=/ops/website"
-          target="_top"
-          prefetch={false}
-          className="button-primary mt-6"
-        >
-          Sign in with ChatGPT
-        </Link>
+        {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- Cloudflare Access routes must use a top-level plain anchor. */}
+        <a href="/cdn-cgi/access/logout" className="button-primary mt-6">
+          Switch Cloudflare Access account
+        </a>
       </main>
     );
   const rows = await listWebsiteSubmissions();

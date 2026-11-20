@@ -54,15 +54,16 @@ export default async function EvidenceReportPage({
           <ShieldCheck className="mb-4 size-8" />
           <h1 className="text-2xl font-black">Operator access only</h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Evidence packs contain client and storefront records.
+            Evidence packs contain client and storefront records. Sign in
+            through Cloudflare Access with the allowlisted email.
           </p>
-          {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- SIWC must use a top-level plain anchor. */}
+          {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- Cloudflare Access routes must use a top-level plain anchor. */}
           <a
-            href="/signin-with-chatgpt?return_to=/ops"
+            href="/cdn-cgi/access/logout"
             target="_top"
             className="mt-5 inline-flex rounded-full bg-[#10261f] px-5 py-3 font-bold text-white"
           >
-            Sign in with ChatGPT
+            Switch Cloudflare Access account
           </a>
         </div>
       </main>

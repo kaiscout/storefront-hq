@@ -14,7 +14,9 @@
     "verify": "npm test && npm run lint",
     "lint": "oxlint",
     "format": "oxfmt",
-    "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.local.jsonc",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.d1.jsonc",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote --config wrangler.d1.jsonc",
+    "deploy": "npm run build && wrangler deploy --config dist/server/wrangler.json",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
@@ -43,7 +45,6 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.54.1",
     "@cloudflare/workers-types": "5.20260828.1",
-    "@openai/sites-vite-plugin": "0.2.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",

@@ -83,16 +83,16 @@ export default async function OpsPage() {
           </CardHeader>
           <CardContent className="space-y-5 text-muted-foreground">
             <p>
-              This board contains lead and reply data. Sign in with the ChatGPT
-              identity explicitly allowlisted for this Site.
+              This board contains lead and reply data. Sign in through
+              Cloudflare Access with the email allowlisted for this site.
             </p>
-            {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- SIWC must use a top-level plain anchor. */}
+            {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- Cloudflare Access routes must use a top-level plain anchor. */}
             <a
-              href="/signin-with-chatgpt?return_to=/ops"
+              href="/cdn-cgi/access/logout"
               target="_top"
               className="inline-flex rounded-full bg-[#10261f] px-5 py-3 font-bold text-white"
             >
-              Sign in with ChatGPT
+              Switch Cloudflare Access account
             </a>
           </CardContent>
         </Card>

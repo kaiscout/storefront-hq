@@ -13,7 +13,7 @@ Full-stack commerce and service-operations software for digital downloads, focus
 | Consent-aware intake and operations | [lib/website-forms.ts](lib/website-forms.ts), [lib/pipeline.ts](lib/pipeline.ts) |
 | Regression evidence | [tests/](tests/), [synthetic demonstration provenance](public/demo-evidence/verification.json) |
 
-The stack is React, TypeScript, Vinext/Vite, Cloudflare Workers and D1, Drizzle, Tailwind CSS, and signed provider webhooks. See the [architecture](docs/architecture.md) for request boundaries and the [documentation index](docs/README.md) for operating references.
+The stack is React, TypeScript, Vinext/Vite, Cloudflare Workers and D1, Drizzle, Tailwind CSS, and signed provider webhooks. Hosting, deploys and operator sign-in are described in [Cloudflare hosting](docs/operations/cloudflare-hosting.md). See the [architecture](docs/architecture.md) for request boundaries and the [documentation index](docs/README.md) for operating references.
 
 ![Synthetic storefront used in the QA evidence demonstration](public/demo-evidence/after-desktop.png)
 
@@ -36,7 +36,7 @@ npm run verify
 npm run build
 ```
 
-Tests preload an offline network guard and inject synthetic provider responses. They must not charge a card, send a message, query a live customer, or consume discovery credits. A build creates local deployment output; publishing is a separate operation.
+Tests preload an offline network guard and inject synthetic provider responses. They must not charge a card, send a message, query a live customer, or consume discovery credits. A build creates local deployment output; `npm run deploy` publishes it to Cloudflare.
 
 ## Repository guide
 

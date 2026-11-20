@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "storefront-hq",
+  "account_id": "2342ec65d99f0a96ec7352bd24307dea",
   "compatibility_date": "2026-08-28",
   // D1 migrations only. The Worker itself is configured in vite.config.ts and
   // deployed from the build output. Keep this id in sync with vite.config.ts.
@@ -9,7 +10,7 @@
     {
       "binding": "DB",
       "database_name": "storefront-hq",
-      "database_id": "a44231ab-57a6-487a-9062-9520dab85d7e",
+      "database_id": "ba9083cd-1164-4301-adc0-d19e80fe9aa5",
       "migrations_dir": "drizzle",
     },
   ],

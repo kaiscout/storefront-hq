@@ -2,16 +2,16 @@
 
 Return to the [project overview](../../README.md). Commands run from the repository root.
 
-Until November 2026 the site was published through OpenAI Sites (Codex). It now builds and deploys to the owner's Cloudflare account as a Worker named `storefront-hq` with its own D1 database.
+Until November 2026 the site was published through OpenAI Sites (Codex). It now builds and deploys as a Worker named `storefront-hq` with its own D1 database, in the Cloudflare account that also holds the domain (front.storecheckqa@gmail.com's account, `2342ec65d99f0a96ec7352bd24307dea`). The denizeizci@gmail.com login is an Administrator member of that account, so one `wrangler login` can deploy it.
 
 | Piece | Value |
 | --- | --- |
 | Worker | `storefront-hq` |
-| Test URL (before domain cutover) | https://storefront-hq.denizeizci.workers.dev |
-| D1 database | `storefront-hq` (`a44231ab-57a6-487a-9062-9520dab85d7e`, Western Europe) |
+| Live domains | https://storefronthq.co.uk and https://www.storefronthq.co.uk (Worker custom domains, switched 20 November 2026); workers.dev is off |
+| D1 database | `storefront-hq` (`ba9083cd-1164-4301-adc0-d19e80fe9aa5`, Western Europe) |
 | Worker settings | `vite.config.ts` (`workerConfig`) |
 | D1 migration config | `wrangler.d1.jsonc` |
-| Operator sign-in | Cloudflare Access, verified in `lib/cloudflare-access.ts` |
+| Operator sign-in | Cloudflare Access app "Storefront HQ ops" (team `round-forest-21bb`), verified in `lib/cloudflare-access.ts` |
 
 ## Everyday commands
 
@@ -27,7 +27,7 @@ Run `db:migrate:remote` before `deploy` whenever a change adds a migration.
 
 OpenAI Sites injected a trusted `oai-authenticated-user-email` header. Nothing strips that header on a plain Worker, so the app no longer reads it. Operator pages and APIs accept only a Cloudflare Access token whose signature, issuer, audience and expiry verify, and whose email is in `OPS_OWNER_EMAIL`.
 
-Set up once in the Cloudflare dashboard → Zero Trust:
+Already set up (November 2026) on Zero Trust Free. To recreate it in the Cloudflare dashboard → Zero Trust:
 
 1. Choose a team name if asked (this gives `<team>.cloudflareaccess.com`).
 2. Access → Applications → Add → Self-hosted. Domain `storefronthq.co.uk`, path `ops`. Add a policy: Action Allow, Include → Emails → the operator email. Login method: One-time PIN is enough.
@@ -72,12 +72,12 @@ The production database on OpenAI Sites holds the enquiries, leads, reviews and 
 
 If the export includes `CREATE TABLE` or `d1_migrations` rows, remove those first. If there is nothing worth keeping, skip this step.
 
-## Domain cutover
+## Domain cutover (done 20 November 2026)
 
-Do this after the secrets are set and the test URL works.
+The steps below are kept for reference and for a future move.
 
-1. Find where the `storefronthq.co.uk` zone lives: Cloudflare dashboard → Websites. If it is listed in this account, continue. If not, add the site and switch the registrar's nameservers to the ones Cloudflare gives.
-2. Run `npx wrangler login` once so Wrangler can manage the domain.
+1. The `storefronthq.co.uk` zone and its Cloudflare Registrar registration are in the same account as the Worker (renews 29 August 2027).
+2. Make sure `npx wrangler whoami` lists Front.storecheckqa@gmail.com's Account.
 3. Disconnect the custom domain from the OpenAI Sites project, then delete any DNS records for `storefronthq.co.uk` and `www` that pointed at OpenAI.
 4. Add to `workerConfig` in `vite.config.ts`, then run `npm run deploy`:
 
@@ -91,4 +91,4 @@ Do this after the secrets are set and the test URL works.
 
 5. Check `/`, `/products`, `/reviews`, `/start` and `/ops` (which should ask for an Access login), then send a Stripe test webhook to confirm the signing secret.
 
-Rollback: the OpenAI Sites deployment stays as it was until its domain is disconnected. Reconnect the domain there to go back.
+Rollback: remove the custom domains from the Worker, then recreate the old records (A `storefronthq.co.uk` → `172.66.3.26` and `162.159.143.30`, CNAME `www` → `custom-domains.chatgpt.site`, all proxied) while the OpenAI Sites project still exists. The `_cf-custom-hostname` and `_openai-site-verification` TXT records were left in place for that reason.
